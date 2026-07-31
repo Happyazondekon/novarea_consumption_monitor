@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String         @id @default(cuid())
+  username     String         @unique
+  password     String
+  name         String
+  role         String         // "ADMIN" | "ELECTRICIAN"
+  email        String?
+  avatar       String?        // Base64 or URL
+  phone        String?
+  instructions String?        // Legacy field for quick display
+  activeMissions Instruction[]
+  isActive     Boolean        @default(true)
+  readings     MeterReading[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Instruction {
+  id        String   @id @default(cuid())
+  text      String
+  status    String   @default("PENDING") // "PENDING" | "DONE"
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MeterReading {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  category     String   // "WATER" | "POWER"
+  value        Float
+  photoUrl     String?
+  timestamp    DateTime @default(now())
+  timeOfDay    String   // "MORNING" | "EVENING"
+  isEdited     Boolean  @default(false)
+  isDeleted    Boolean  @default(false)
+}
+
+model Consumption {
+  id            String   @id @default(cuid())
+  date          DateTime
+  category      String   // "WATER" | "POWER"
+  previousValue Float
+  currentValue  Float
+  consumption   Float
+  createdAt     DateTime @default(now())
+}
+
+model EventType {
+  id          String       @id @default(cuid())
+  code        String       @unique // e.g., "PTR", "GPO"
+  description String
+  category    String       // "WATER" | "POWER" | "BOTH"
+  type        String       // "INCREASE" | "DECREASE"
+  dailyEvents DailyEvent[]
+}
+
+model DailyEvent {
+  id          String    @id @default(cuid())
+  date        DateTime
+  eventTypeId String
+  eventType   EventType @relation(fields: [eventTypeId], references: [id])
+  comment     String?
+  createdAt   DateTime  @default(now())
+}

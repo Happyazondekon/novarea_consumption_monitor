@@ -1,0 +1,45 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# DATABASE
+prisma/dev.db
+prisma/dev.db-journal
+
+# HEAVY ASSETS (Exclude raw bulky files not used in final bundle)
+/assets/DOC-20250623-WA0094_260724_205045 (1).pdf
+/assets/template rapport.pdf
+/assets/login.png
+/assets/favicon/logo site.png
+/assets/admin_navigation_flow.png
+/assets/xls template/
