@@ -4,8 +4,10 @@ import { auth } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const session = await auth();
-  if ((session?.user as any)?.role !== 'ADMINISTRATEUR')
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const role = (session.user as any).role;
+  const userId = (session.user as any).id;
 
   try {
     const { ids, action } = await req.json();
@@ -15,17 +17,25 @@ export async function POST(req: Request) {
     }
 
     if (action === "DELETE") {
-        await prisma.meterReading.deleteMany({
-            where: { id: { in: ids } }
-        });
-        // Note: Associated consumption records remain but we could cleanup if needed
+        // If not admin, only allow deleting own readings
+        if (role !== 'ADMINISTRATEUR') {
+            await prisma.meterReading.deleteMany({
+                where: { id: { in: ids }, userId: userId }
+            });
+        } else {
+            await prisma.meterReading.deleteMany({
+                where: { id: { in: ids } }
+            });
+        }
         return NextResponse.json({ message: "Deleted successfully" });
     }
 
     if (action === "VALIDATE") {
+        if (role !== 'ADMINISTRATEUR') return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
         await prisma.meterReading.updateMany({
             where: { id: { in: ids } },
-            data: { isEdited: false } // Assuming validation resets 'Edited' or sets a verified flag
+            data: { isEdited: false }
         });
         return NextResponse.json({ message: "Validated successfully" });
     }

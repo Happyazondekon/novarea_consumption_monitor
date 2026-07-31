@@ -9,14 +9,12 @@ export async function GET() {
   const userId = (session.user as any).id;
 
   try {
-    // 1. New Instructions count (not null)
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { instructions: true }
+    // 1. Pending Missions count
+    const pendingMissions = await prisma.instruction.count({
+        where: { userId, status: 'PENDING' }
     });
-    const newInstructions = user?.instructions ? 1 : 0;
 
-    // 2. Total Readings Validated (isEdited = false)
+    // 2. Total Readings Validated
     const validatedCount = await prisma.meterReading.count({
         where: { userId, isEdited: false, isDeleted: false }
     });
@@ -32,7 +30,7 @@ export async function GET() {
     });
 
     return NextResponse.json({
-        newInstructions,
+        newInstructions: pendingMissions,
         validatedCount,
         pendingCount,
         totalReadings

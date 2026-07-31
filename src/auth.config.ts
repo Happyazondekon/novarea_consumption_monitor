@@ -7,9 +7,19 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
+      const role = (auth?.user as any)?.role;
       const isAuthPage = nextUrl.pathname.startsWith("/login");
       const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth");
       const isDashboardRoute = nextUrl.pathname.startsWith("/dashboard");
+
+      // Admin-only sub-routes
+      const adminOnlyRoutes = [
+        "/dashboard/events",
+        "/dashboard/reports",
+        "/dashboard/reports/generator",
+        "/dashboard/users"
+      ];
+      const isAdminRoute = adminOnlyRoutes.some(route => nextUrl.pathname.startsWith(route));
 
       if (isApiAuthRoute) return true;
 
@@ -20,6 +30,11 @@ export const authConfig = {
 
       if (isDashboardRoute) {
         if (!isLoggedIn) return false;
+
+        // Role-based Access Control
+        if (isAdminRoute && role !== 'ADMINISTRATEUR') {
+            return Response.redirect(new URL("/dashboard", nextUrl));
+        }
       }
 
       return true;

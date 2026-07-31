@@ -9,6 +9,11 @@ export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Restrict to Administrators
+  if ((session.user as any).role !== 'ADMINISTRATEUR') {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { searchParams } = new URL(req.url);
   const resource = searchParams.get("resource") || "POWER";
   const period = (searchParams.get("period") || "WEEK") as "WEEK" | "MONTH" | "YEAR";

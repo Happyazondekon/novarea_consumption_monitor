@@ -28,12 +28,23 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
-  if ((session?.user as any)?.role !== 'ADMINISTRATEUR')
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const role = (session.user as any).role;
+  const userId = (session.user as any).id;
 
   try {
     const id = params.id;
-    await prisma.meterReading.delete({ where: { id } });
+
+    if (role === 'ADMINISTRATEUR') {
+        await prisma.meterReading.delete({ where: { id } });
+    } else {
+        // Technician can only delete their own
+        await prisma.meterReading.delete({
+            where: { id, userId }
+        });
+    }
+
     return NextResponse.json({ message: "Deleted successfully" });
   } catch (error) {
     return NextResponse.json({ error: "Delete failed" }, { status: 500 });
