@@ -28,6 +28,7 @@
     "date-fns": "^4.4.0",
     "driver.js": "^1.8.0",
     "exceljs": "^4.4.0",
+    "file-saver": "^2.0.5",
     "framer-motion": "^11.11.11",
     "groq-sdk": "^1.4.1",
     "html2canvas": "^1.4.1",
@@ -46,6 +47,7 @@
     "uuid": "^14.0.1"
   },
   "devDependencies": {
+    "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
