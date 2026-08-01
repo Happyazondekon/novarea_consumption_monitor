@@ -16,11 +16,11 @@ model User {
   username     String         @unique
   password     String
   name         String
-  role         String         // "ADMIN" | "ELECTRICIAN"
+  role         String         // "ADMINISTRATEUR" | "ELECTRICIEN"
   email        String?
   avatar       String?        // Base64 or URL
   phone        String?
-  instructions String?        // Legacy field for quick display
+  instructions String?
   activeMissions Instruction[]
   isActive     Boolean        @default(true)
   readings     MeterReading[]
