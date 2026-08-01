@@ -29,7 +29,12 @@ export const authConfig = {
       }
 
       if (isDashboardRoute) {
-        if (!isLoggedIn) return false;
+        if (!isLoggedIn) {
+            // Redirect to login if trying to access dashboard while unauthenticated
+            const loginUrl = new URL("/login", nextUrl);
+            loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
+            return Response.redirect(loginUrl);
+        }
 
         // Role-based Access Control
         if (isAdminRoute && role !== 'ADMINISTRATEUR') {
@@ -43,8 +48,6 @@ export const authConfig = {
         if (user) {
           token.id = user.id;
           token.role = (user as any).role;
-          // IMPORTANT: DO NOT STORE THE AVATAR (BASE64) IN THE TOKEN
-          // It causes the cookie size to exceed browser limits (ERR_RESPONSE_HEADERS_TOO_BIG)
           token.hasAvatar = !!(user as any).avatar;
         }
 

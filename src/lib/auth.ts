@@ -34,7 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           email: user.email,
           role: user.role,
-          avatar: user.avatar ? "EXISTS" : null, // Store only status to keep session small
+          avatar: user.avatar ? "EXISTS" : null,
         };
       },
     }),
@@ -67,6 +67,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 2 * 60 * 60, // 2 hours
+    maxAge: 1 * 60 * 60, // STRICT 1 HOUR SESSION
   },
+  // Ensure logout always redirects to login even in production
+  trustHost: true,
 });
