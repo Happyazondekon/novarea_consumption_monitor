@@ -63,7 +63,7 @@ function LoginForm() {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-2xl px-6 py-4 md:py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none focus:ring-4 focus:ring-blue-600/20 transition-all shadow-inner"
+                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-6 py-4 md:py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:ring-4 focus:ring-blue-600/20 transition-all shadow-inner"
                     placeholder="Enter your system ID"
                 />
             </div>
@@ -78,7 +78,7 @@ function LoginForm() {
                         type={showPwd ? "text" : "password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-2xl px-6 py-4 md:py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none focus:ring-4 focus:ring-blue-600/20 transition-all shadow-inner"
+                        className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl px-6 py-4 md:py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 outline-none focus:ring-4 focus:ring-blue-600/20 transition-all shadow-inner"
                         placeholder="••••••••••••"
                     />
                     <button
@@ -144,11 +144,11 @@ export default function LoginPage() {
         {/* RIGHT AREA: AUTHENTICATION (Full Workspace Glassmorphism) */}
         <div className="w-full lg:w-[40%] h-full flex flex-col items-center justify-center p-6 md:p-20 overflow-y-auto custom-scrollbar relative">
 
-            {/* IMMERSIVE GLASS SURFACE OVER THE FULL RIGHT PANEL */}
-            <div className="absolute inset-0 bg-white/20 dark:bg-black/30 backdrop-blur-xl border-l border-white/20 dark:border-white/5 hidden lg:block z-0 shadow-2xl" />
+            {/* IMMERSIVE GLASS SURFACE OVER THE FULL RIGHT PANEL (Thinner/Natural) */}
+            <div className="absolute inset-0 bg-white/10 dark:bg-black/20 backdrop-blur-md border-l border-white/20 dark:border-white/5 hidden lg:block z-0 shadow-2xl" />
 
             {/* AUTH CARD (Nested inside the glass panel) */}
-            <div className="w-full max-w-[420px] relative z-10 bg-white/40 dark:bg-zinc-900/60 lg:bg-transparent lg:dark:bg-transparent backdrop-blur-3xl lg:backdrop-blur-0 p-8 md:p-12 lg:p-0 rounded-[2.5rem] lg:rounded-none border border-white/40 dark:border-white/10 lg:border-none shadow-2xl lg:shadow-none space-y-10 animate-in fade-in slide-in-from-right-8 duration-1000">
+            <div className="w-full max-w-[420px] relative z-10 bg-white/10 dark:bg-black/30 lg:bg-transparent lg:dark:bg-transparent backdrop-blur-xl lg:backdrop-blur-0 p-8 md:p-12 lg:p-0 rounded-[2.5rem] lg:rounded-none border border-white/20 dark:border-white/10 lg:border-none shadow-2xl lg:shadow-none space-y-10 animate-in fade-in slide-in-from-right-8 duration-1000">
 
                 <div className="space-y-6 md:space-y-8 text-center lg:text-left text-zinc-900 dark:text-white">
                     <div className="flex justify-center lg:justify-start">
@@ -157,8 +157,8 @@ export default function LoginPage() {
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <h2 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white uppercase tracking-tight leading-none drop-shadow-md">AUTHENTICATION</h2>
-                        <p className="text-zinc-600 dark:text-zinc-400 font-bold uppercase text-[10px] tracking-widest mt-2">ACCESS YOUR SECURE WORKSPACE</p>
+                        <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight leading-none drop-shadow-md">AUTHENTICATION</h2>
+                        <p className="text-zinc-600 dark:text-zinc-400 font-bold uppercase text-[10px] tracking-widest mt-2 drop-shadow-sm">ACCESS YOUR SECURE WORKSPACE</p>
                     </div>
                 </div>
 
