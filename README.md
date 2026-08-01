@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Novarea Textiles Monitoring Platform 🏭📊
 
-## Getting Started
+An elite, industrial-grade monitoring ecosystem designed for **Novarea Textiles Benin**. This platform provides real-time utility tracking (Electricity & Water), VISSIM-standard analytical reporting, and a high-fidelity mobile-first experience for field technicians and administrators.
 
-First, run the development server:
+👉 **Production Hub:** [https://novarea-consumption.vercel.app](https://novarea-consumption.vercel.app)
 
+---
+
+## 🚀 Key Features
+
+### 🔐 Secure Authentication & RBAC
+- **Dual-Role System:** Distinct workspaces for **Administrators** (Audit & Analytics) and **Field Technicians** (Logging & Missions).
+- **Hardened Middleware:** Route-level protection preventing unauthorized access.
+- **Session Management:** Strict 1-hour secure tokens with automated redirection.
+
+### 📊 Real-Time Analytics Engine
+- **Industrial KPIs:** Live tracking of daily consumption, averages, and anomaly counts.
+- **Dynamic Charts:** Interactive dual-axis trend analysis (Consumption vs. Events).
+- **Contextual Awareness:** Integrated event codes (PTR, GPO, etc.) directly on data points for VISSIM-style root cause analysis.
+
+### 📱 Mobile-First PWA Experience
+- **Progressive Web App:** Fully "Installable" on iOS and Android with official branding.
+- **Ergonomic Navigation:** Role-specific bottom navigation bar with a floating "+" action button for high-speed field data entry.
+- **Glassmorphism UI:** Premium "Apple-style" aesthetics with backdrop-blur effects and fluid transitions.
+
+### 📄 Professional Reporting Center
+- **High-Fidelity PDF:** Client-side document builder with chart captures, ink-saving table headers, and operational definitions.
+- **Multi-Sheet Excel:** Industrial-standard exports featuring separate sheets for Consumption Data and Event Logs.
+- **Granular Filtering:** Query data by Week, Month, or Year with precise date selection.
+
+---
+
+## 🛠️ Technical Stack
+
+- **Framework:** [Next.js 14 (App Router)](https://nextjs.org/)
+- **Language:** TypeScript
+- **Database:** [Neon PostgreSQL](https://neon.tech/)
+- **ORM:** [Prisma](https://www.prisma.io/)
+- **Auth:** [NextAuth.js v5 (Beta)](https://authjs.dev/)
+- **Styling:** Tailwind CSS / Framer Motion
+- **Charts:** Recharts
+- **Deployment:** Vercel
+
+---
+
+## ⚙️ Installation & Setup
+
+### 1. Clone the Repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/Happyazondekon/novarea_consumption_monitor.git
+cd novarea_consumption_monitor
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Install Dependencies
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Environment Variables
+Create a `.env` file in the root and add your production credentials:
+```env
+# Neon PostgreSQL
+DATABASE_URL="your_pooled_connection_string"
+DIRECT_URL="your_direct_connection_string"
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Next Auth
+AUTH_SECRET="your_secure_random_key"
+```
 
-## Learn More
+### 4. Initialize Database
+```bash
+npx prisma db push
+npx prisma db seed # Populates 30 days of industrial data
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 5. Run Development Server
+```bash
+npm run dev
+```
+Access the portal at `http://localhost:3000`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛡️ Security Baseline
 
-## Deploy on Vercel
+- **CSP Headers:** Prevent XSS and unauthorized script execution.
+- **HSTS:** Enforce HTTPS protocols globally.
+- **X-Frame-Options:** Protection against Clickjacking.
+- **Data Scoping:** Technicians can strictly only view/modify their own submitted data.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🏗️ Operational Workflow
+
+### For Administrators
+1. **Analytics:** Monitor global trends and daily efficiency.
+2. **Audit:** Validate or adjust field readings in the **Submission Audit** hub.
+3. **Dispatch:** Broadcast operational directives to technicians via the **Mission Control**.
+4. **Reporting:** Generate monthly compliance documents for stakeholder review.
+
+### For Technicians
+1. **Logging:** Use the mobile "+" button to capture meter indexes and photo proof.
+2. **Missions:** View and mark active directives as **DONE** in real-time.
+3. **History:** Review personal submission archives and audit status.
+
+---
+
+**Developed for Novarea Textiles Benin.** Managed by high-performance industrial standards. 🛡️🦾
