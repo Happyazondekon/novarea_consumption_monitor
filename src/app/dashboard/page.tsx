@@ -60,8 +60,8 @@ export default function DashboardPage() {
   const [loadingWater, setLoadingWater] = useState(false);
 
   const isDark = resolvedTheme === 'dark';
-  const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.2)";
-  const axisColor = isDark ? "#a1a1aa" : "#18181b";
+  const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
+  const axisColor = isDark ? "#a1a1aa" : "#71717a";
   const tooltipBg = isDark ? "rgba(24, 24, 27, 0.95)" : "rgba(255, 255, 255, 1)";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)";
 

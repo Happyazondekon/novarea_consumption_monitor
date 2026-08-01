@@ -45,7 +45,7 @@
   }
 
   .apple-card {
-    @apply bg-white dark:bg-zinc-900 rounded-[32px] border-none shadow-sm p-8;
+    @apply bg-white dark:bg-zinc-900 rounded-[32px] border border-zinc-200/60 dark:border-none shadow-sm p-8;
   }
 }
 

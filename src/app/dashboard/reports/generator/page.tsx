@@ -317,7 +317,7 @@ export default function ReportGeneratorPage() {
         </div>
 
         <div className="lg:col-span-9 space-y-6">
-            <Card className="apple-card p-8 bg-white dark:bg-zinc-900 border-none shadow-sm min-h-[500px] flex flex-col space-y-8">
+            <Card className="apple-card p-8 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-none shadow-sm min-h-[500px] flex flex-col space-y-8">
                 {loading ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 gap-4">
                         <Loader2 className="animate-spin text-blue-600" size={48} />
