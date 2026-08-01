@@ -388,7 +388,7 @@ export default function ReportsPage() {
              <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] bg-zinc-50/50 dark:bg-zinc-800/20">
-                    <th className="px-6 py-4 w-10">
+                    <th className="px-6 py-4 w-10 border-b border-zinc-200 dark:border-zinc-800">
                         <button
                             onClick={toggleSelectAll}
                             className={cn(
@@ -409,7 +409,7 @@ export default function ReportsPage() {
                     <th className="px-6 py-4 text-right pr-10">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                   {filteredReadings.map((item) => (
                     <tr
                         key={item.id}

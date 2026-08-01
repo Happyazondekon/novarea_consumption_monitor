@@ -1,18 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { useSession } from "next-auth/react";
 import {
-  Users, Plus, Pencil, Search,
-  CheckCircle2, XCircle, Loader2, Save,
-  ArrowLeft, Shield, Mail, Phone, Lock, Info,
-  Zap, User
+  User,
+  Users,
+  Plus,
+  Mail,
+  Phone,
+  Shield,
+  Trash2,
+  Pencil,
+  Search,
+  X,
+  Loader2,
+  CheckCircle2,
+  ShieldCheck,
+  ShieldAlert,
+  ArrowLeft,
+  ChevronRight
 } from "lucide-react";
+import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 import Swal from 'sweetalert2';
 
-export default function UserManagementPage() {
+export default function UsersPage() {
+  const { data: session } = useSession();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -20,10 +33,9 @@ export default function UserManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [formData, setFormData] = useState({
-    username: "",
     name: "",
+    username: "",
     email: "",
-    phone: "",
     role: "ELECTRICIEN",
     password: "",
     instructions: "",
@@ -33,7 +45,7 @@ export default function UserManagementPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch("/api/users");
       if (res.ok) setUsers(await res.json());
     } finally {
       setLoading(false);
@@ -44,26 +56,24 @@ export default function UserManagementPage() {
     fetchUsers();
   }, []);
 
-  const handleOpenForm = (u: any = null) => {
-    if (u) {
-      setSelectedUser(u);
+  const handleOpenForm = (user: any = null) => {
+    if (user) {
+      setSelectedUser(user);
       setFormData({
-        username: u.username,
-        name: u.name,
-        email: u.email || "",
-        phone: u.phone || "",
-        role: u.role,
+        name: user.name,
+        username: user.username,
+        email: user.email || "",
+        role: user.role,
         password: "",
-        instructions: u.instructions || "",
-        isActive: u.isActive
+        instructions: user.instructions || "",
+        isActive: user.isActive
       });
     } else {
       setSelectedUser(null);
       setFormData({
-        username: "",
         name: "",
+        username: "",
         email: "",
-        phone: "",
         role: "ELECTRICIEN",
         password: "",
         instructions: "",
@@ -73,23 +83,18 @@ export default function UserManagementPage() {
     setShowForm(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        body: JSON.stringify({
-            id: selectedUser?.id,
-            ...formData
-        })
+      const res = await fetch("/api/users", {
+        method: "POST",
+        body: JSON.stringify({ id: selectedUser?.id, ...formData })
       });
       if (res.ok) {
-        Swal.fire({ title: 'Success', text: 'Account updated successfully', icon: 'success', timer: 1500 });
+        Swal.fire({ title: 'Success', text: selectedUser ? 'Account Updated' : 'Account Created', icon: 'success', timer: 1500, showConfirmButton: false });
         setShowForm(false);
         fetchUsers();
-      } else {
-        Swal.fire('Error', 'Failed to save account', 'error');
       }
     } finally {
       setLoading(false);
@@ -102,132 +107,149 @@ export default function UserManagementPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 animate-fade-in py-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
+    <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6 px-2">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600 mb-1">Human Resources</p>
-          <h1 className="text-4xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter">Team Management</h1>
-          <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-widest mt-2">Oversee technician access and field assignments</p>
+          <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] mb-1">Human Resources</p>
+          <h1 className="text-2xl lg:text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Team Management</h1>
+          <p className="text-zinc-500 font-bold uppercase text-[9px] tracking-widest mt-2">Oversee technician credentials and access</p>
         </div>
         {!showForm && (
-            <button onClick={() => handleOpenForm()} className="btn-primary flex items-center gap-2 px-8 py-3 rounded-2xl shadow-lg shadow-blue-500/20">
-                <Plus size={18} /> New Account
+            <button onClick={() => handleOpenForm()} className="btn-primary flex items-center gap-2 px-8 py-3 rounded-xl shadow-lg shadow-blue-500/10 text-[10px] font-black uppercase">
+                <Plus size={16} /> Add Personnel
             </button>
         )}
       </div>
 
       {showForm ? (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[3rem] p-8 md:p-12 space-y-10 shadow-2xl animate-in slide-in-from-bottom-4 duration-500 px-4">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[3rem] p-6 lg:p-10 space-y-8 shadow-xl animate-in slide-in-from-bottom-4 duration-500 mx-2">
             <div className="flex items-center justify-between">
-                <button onClick={() => setShowForm(false)} className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest hover:text-blue-600 transition-colors">
-                    <ArrowLeft size={16} /> <span>Back to List</span>
+                <button onClick={() => setShowForm(false)} className="flex items-center gap-2 text-[10px] font-black text-zinc-400 uppercase hover:text-blue-600 transition-all">
+                    <ArrowLeft size={16} /> Back to Directory
                 </button>
-                <h3 className="text-sm font-black uppercase tracking-widest text-zinc-900 dark:text-white">
-                    {selectedUser ? `Editing ${formData.name}` : "Create New Professional Account"}
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-white">
+                    {selectedUser ? "Modify Credentials" : "Initialize New Account"}
                 </h3>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-3">
-                        <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2"><User size={12}/> Full Name</label>
-                        <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all outline-none" placeholder="John Doe" />
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Full Name</label><input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-4 px-6 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all" /></div>
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">System Identifier</label><input required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-4 px-6 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all" /></div>
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Corporate Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-4 px-6 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all" /></div>
+                </div>
+                <div className="space-y-6">
+                    <div className="space-y-1.5"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Operational Role</label><select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-4 px-6 text-sm font-bold appearance-none outline-none"><option value="ELECTRICIEN">FIELD TECHNICIAN</option><option value="ADMINISTRATEUR">SYSTEM ADMINISTRATOR</option></select></div>
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Security Key {selectedUser && "(Leave blank to keep current)"}</label>
+                        <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-4 px-6 text-sm font-bold" placeholder="••••••••" />
                     </div>
-                    <div className="space-y-3">
-                        <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Lock size={12}/> Username (System ID)</label>
-                        <input required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all outline-none" placeholder="jdoe_novarea" />
-                    </div>
-                    <div className="space-y-3">
-                        <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Mail size={12}/> Contact Email</label>
-                        <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all outline-none" placeholder="john@novarea.com" />
-                    </div>
-                    <div className="space-y-3">
-                        <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Shield size={12}/> Access Privilege</label>
-                        <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 outline-none appearance-none cursor-pointer">
-                            <option value="ELECTRICIEN">FIELD TECHNICIAN</option>
-                            <option value="ADMINISTRATEUR">SYSTEM ADMINISTRATOR</option>
-                        </select>
-                    </div>
-                    <div className="space-y-3 md:col-span-2">
-                        <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Info size={12}/> Special Instructions / Missions</label>
-                        <textarea rows={3} value={formData.instructions} onChange={e => setFormData({...formData, instructions: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all outline-none resize-none" placeholder="Assigned sector, maintenance notes..." />
+                    <div className="flex items-center gap-4 pt-4">
+                        <button type="button" onClick={() => setFormData({...formData, isActive: !formData.isActive})} className={cn("px-6 py-3 rounded-xl text-[9px] font-black uppercase transition-all", formData.isActive ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>
+                            {formData.isActive ? "Account Active" : "Account Locked"}
+                        </button>
                     </div>
                 </div>
 
-                <div className="pt-8 border-t border-zinc-50 dark:border-zinc-800 flex justify-end gap-4">
-                    <button type="button" onClick={() => setShowForm(false)} className="px-8 py-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:bg-zinc-100 transition-all">Cancel</button>
-                    <button disabled={loading} type="submit" className="btn-primary flex items-center gap-2 px-10 py-3 rounded-2xl">
-                         {loading ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-                         <span>{selectedUser ? "Update Professional Profile" : "Activate Account"}</span>
+                <div className="md:col-span-2 pt-8 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-4">
+                    <button type="submit" disabled={loading} className="btn-primary px-12 py-4 rounded-2xl text-xs font-black">
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+                        Save Personnel Profile
                     </button>
                 </div>
             </form>
         </div>
       ) : (
         <div className="space-y-6 px-2">
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-2 flex flex-col md:flex-row gap-4 shadow-sm">
-                <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-1 flex-1 relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-600 transition-colors" size={18} />
                     <input
-                      type="text"
-                      placeholder="SEARCH PROFESSIONAL DIRECTORY..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none text-[10px] font-black uppercase tracking-[0.2em] outline-none focus:ring-4 focus:ring-blue-600/5 transition-all"
+                        type="text"
+                        placeholder="Search Directory..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 rounded-xl bg-zinc-50 dark:bg-zinc-800 border-none text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-600/5 transition-all"
                     />
                 </div>
             </div>
 
-            <Card className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-xl shadow-zinc-200/5">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-zinc-50/50 dark:bg-zinc-800/30 text-[9px] font-black text-zinc-400 uppercase tracking-widest">
-                                <th className="px-8 py-6">Member Name</th>
-                                <th className="px-8 py-6">Professional Role</th>
-                                <th className="px-8 py-6">Status</th>
-                                <th className="px-8 py-6 text-right">Settings</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
-                            {filteredUsers.map((u) => (
-                                <tr key={u.id} className="group hover:bg-zinc-50 dark:hover:bg-white/[0.01] transition-all">
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-xs font-black uppercase overflow-hidden border border-zinc-50 dark:border-zinc-700">
-                                                {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name.substring(0,2)}
-                                            </div>
-                                            <div>
-                                                <p className="text-[13px] font-black text-zinc-900 dark:text-white uppercase tracking-tight leading-none">{u.name}</p>
-                                                <p className="text-[9px] font-bold text-zinc-400 mt-1.5 lowercase italic tracking-wide">{u.email || `@${u.username}`}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <span className={cn(
-                                            "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border",
-                                            u.role === 'ADMINISTRATEUR' ? "bg-purple-50 text-purple-600 border-purple-100" : "bg-blue-50 text-blue-600 border-blue-100"
-                                        )}>
-                                            {u.role === 'ADMINISTRATEUR' ? "Admin" : "Technician"}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-2">
-                                            {u.isActive ? <CheckCircle2 size={14} className="text-green-500" /> : <XCircle size={14} className="text-zinc-300" />}
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{u.isActive ? "Active" : "Locked"}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <button onClick={() => handleOpenForm(u)} className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 text-zinc-400 hover:text-blue-600 transition-all shadow-sm">
-                                            <Pencil size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {/* MOBILE-ONLY LIST VIEW */}
+            <div className="lg:hidden grid grid-cols-1 gap-3 pb-20">
+                {filteredUsers.map(u => (
+                    <div key={u.id} className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-black uppercase shrink-0">
+                                {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name.substring(0,2)}
+                            </div>
+                            <div className="overflow-hidden">
+                                <p className="text-[11px] font-black text-zinc-900 dark:text-white uppercase leading-none truncate">{u.name}</p>
+                                <p className="text-[8px] font-bold text-zinc-400 uppercase mt-1">@{u.username} • {u.role === 'ADMINISTRATEUR' ? 'Admin' : 'Tech'}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => handleOpenForm(u)} className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 text-zinc-400 active:text-blue-600 transition-all"><Pencil size={16} /></button>
+                    </div>
+                ))}
+            </div>
+
+            {/* DESKTOP-ONLY TABLE VIEW */}
+            <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                    <tr className="bg-zinc-100 dark:bg-zinc-800/20 text-[9px] font-black text-zinc-400 uppercase tracking-widest">
+                        <th className="px-8 py-5">Personnel Identity</th>
+                        <th className="px-8 py-5">Operational Role</th>
+                        <th className="px-8 py-5">System Access</th>
+                        <th className="px-8 py-5 text-right pr-12">Audit</th>
+                    </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                    {filteredUsers.map((u) => (
+                        <tr key={u.id} className="group hover:bg-zinc-50 dark:hover:bg-white/[0.01] transition-all">
+                        <td className="px-8 py-5">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-black uppercase overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                                    {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name.substring(0,2)}
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-black text-zinc-900 dark:text-white uppercase leading-none">{u.name}</span>
+                                    <span className="text-[9px] font-bold text-zinc-400 uppercase mt-1">@{u.username}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td className="px-8 py-5">
+                            <span className={cn(
+                                "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border",
+                                u.role === 'ADMINISTRATEUR' ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-zinc-50 text-zinc-500 border-zinc-200"
+                            )}>
+                                {u.role === 'ADMINISTRATEUR' ? "System Admin" : "Field Technician"}
+                            </span>
+                        </td>
+                        <td className="px-8 py-5">
+                            <div className="flex items-center gap-2">
+                                <div className={cn("w-2 h-2 rounded-full", u.isActive ? "bg-green-500" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]")} />
+                                <span className="text-[9px] font-black uppercase text-zinc-500">{u.isActive ? "Authorized" : "Revoked"}</span>
+                            </div>
+                        </td>
+                        <td className="px-8 py-5 text-right pr-12">
+                            <button
+                                onClick={() => handleOpenForm(u)}
+                                className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800 text-zinc-400 hover:text-blue-600 hover:bg-white dark:hover:bg-zinc-700 transition-all opacity-0 group-hover:opacity-100 shadow-sm"
+                            >
+                                <Pencil size={16} />
+                            </button>
+                        </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {filteredUsers.length === 0 && (
+                <div className="py-20 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-[3rem]">
+                    <p className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">No personnel records matched your search</p>
                 </div>
-            </Card>
+            )}
         </div>
       )}
     </div>

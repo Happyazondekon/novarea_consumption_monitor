@@ -466,7 +466,7 @@ function TechnicianDashboard({ isDark }: { isDark: boolean }) {
                   <th className="px-8 py-4 text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                 {readings.map((r) => (
                   <tr key={r.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-all">
                     <td className="px-8 py-4">
