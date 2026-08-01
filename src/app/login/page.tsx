@@ -42,8 +42,8 @@ function LoginForm() {
           confirmButtonColor: '#2563eb'
         });
       } else {
-        router.push(callbackUrl);
-        router.refresh();
+        // Use window.location for a hard redirect to bypass potential middleware/router loops in production
+        window.location.href = callbackUrl;
       }
     } catch (error) {
         Swal.fire('Error', 'System synchronization failed.', 'error');

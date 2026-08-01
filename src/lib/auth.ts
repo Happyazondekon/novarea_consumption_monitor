@@ -67,8 +67,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 1 * 60 * 60, // STRICT 1 HOUR SESSION
+    maxAge: 1 * 60 * 60, // 1 HOUR
   },
-  // Ensure logout always redirects to login even in production
   trustHost: true,
+  secret: process.env.AUTH_SECRET,
 });
