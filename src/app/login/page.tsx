@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import Swal from 'sweetalert2';
 
-export default function LoginPage() {
+function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,7 +42,6 @@ export default function LoginPage() {
           confirmButtonColor: '#2563eb'
         });
       } else {
-        // Force a hard redirect or use router to the callback URL
         router.push(callbackUrl);
         router.refresh();
       }
@@ -53,6 +52,68 @@ export default function LoginPage() {
     }
   };
 
+  return (
+    <form onSubmit={handleLogin} className="space-y-10">
+        <div className="space-y-8">
+            {/* Identifiant */}
+            <div className="space-y-4 text-left">
+                <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">
+                    IDENTIFIANT
+                </label>
+                <input
+                    required
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full bg-[#f4f4f5] dark:bg-[#1e2330] border-2 border-transparent dark:border-transparent rounded-2xl px-6 py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none focus:ring-4 focus:ring-blue-600/5 transition-all shadow-inner"
+                    placeholder="Enter your system ID"
+                />
+            </div>
+
+            {/* Security Key */}
+            <div className="space-y-4 text-left">
+                <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">
+                    SECURITY KEY
+                </label>
+                <div className="relative">
+                    <input
+                        required
+                        type={showPwd ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full bg-[#f4f4f5] dark:bg-[#1e2330] border-2 border-transparent dark:border-transparent rounded-2xl px-6 py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none focus:ring-4 focus:ring-blue-600/5 transition-all shadow-inner"
+                        placeholder="••••••••••••"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPwd(!showPwd)}
+                        className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-blue-600 transition-colors"
+                    >
+                        {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <button
+            disabled={loading}
+            type="submit"
+            className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] font-black uppercase tracking-widest text-sm"
+        >
+            {loading ? (
+                <Loader2 className="animate-spin" size={24} />
+            ) : (
+                <>
+                    LOGIN
+                    <ArrowRight size={18} />
+                </>
+            )}
+        </button>
+    </form>
+  );
+}
+
+export default function LoginPage() {
   return (
     <div className="min-h-screen flex bg-white dark:bg-[#09090b] transition-colors duration-500 selection:bg-blue-500/30 font-sans">
 
@@ -98,63 +159,9 @@ export default function LoginPage() {
                 </div>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-10">
-                <div className="space-y-8">
-                    {/* Identifiant */}
-                    <div className="space-y-4 text-left">
-                        <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                            IDENTIFIANT
-                        </label>
-                        <input
-                            required
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            className="w-full bg-[#f4f4f5] dark:bg-[#1e2330] border-2 border-transparent dark:border-transparent rounded-2xl px-6 py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none focus:ring-4 focus:ring-blue-600/5 transition-all shadow-inner"
-                            placeholder="Enter your system ID"
-                        />
-                    </div>
-
-                    {/* Security Key */}
-                    <div className="space-y-4 text-left">
-                        <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                            SECURITY KEY
-                        </label>
-                        <div className="relative">
-                            <input
-                                required
-                                type={showPwd ? "text" : "password"}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-[#f4f4f5] dark:bg-[#1e2330] border-2 border-transparent dark:border-transparent rounded-2xl px-6 py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none focus:ring-4 focus:ring-blue-600/5 transition-all shadow-inner"
-                                placeholder="••••••••••••"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPwd(!showPwd)}
-                                className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-blue-600 transition-colors"
-                            >
-                                {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <button
-                    disabled={loading}
-                    type="submit"
-                    className="w-full h-16 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] font-black uppercase tracking-widest text-sm"
-                >
-                    {loading ? (
-                        <Loader2 className="animate-spin" size={24} />
-                    ) : (
-                        <>
-                            LOGIN
-                            <ArrowRight size={18} />
-                        </>
-                    )}
-                </button>
-            </form>
+            <Suspense fallback={<div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>}>
+                <LoginForm />
+            </Suspense>
         </div>
       </div>
     </div>
