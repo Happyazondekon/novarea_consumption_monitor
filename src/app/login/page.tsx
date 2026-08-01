@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   Loader2,
@@ -20,6 +20,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +42,9 @@ export default function LoginPage() {
           confirmButtonColor: '#2563eb'
         });
       } else {
-        router.push("/dashboard");
+        // Force a hard redirect or use router to the callback URL
+        router.push(callbackUrl);
+        router.refresh();
       }
     } catch (error) {
         Swal.fire('Error', 'System synchronization failed.', 'error');
@@ -52,7 +56,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex bg-white dark:bg-[#09090b] transition-colors duration-500 selection:bg-blue-500/30 font-sans">
 
-      {/* LEFT SIDE: BRANDING PANEL (THEME REACTIVE) */}
+      {/* LEFT SIDE: BRANDING PANEL (BOTTOM-LEFT ALIGNED) */}
       <div className="hidden lg:flex lg:w-[60%] relative overflow-hidden bg-zinc-50 dark:bg-zinc-900/20">
         <div className="absolute inset-0 z-0">
             <Image
@@ -68,7 +72,7 @@ export default function LoginPage() {
 
         <div className="relative z-10 w-full h-full flex flex-col justify-start pt-[35%] pl-[45%] pr-16">
             <div className="space-y-1">
-                {/* Horizontal bar shifted upward as requested */}
+                {/* Horizontal bar ABOVE text */}
                 <div className="w-16 h-1 bg-blue-600 mb-6" />
                 <h1 className="text-6xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-[0.9]">
                     MONITORING <br /> <span className="text-blue-600">PLATFORM</span>
@@ -80,7 +84,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* RIGHT SIDE: AUTHENTICATION FORM (THEME REACTIVE) */}
+      {/* RIGHT SIDE: AUTHENTICATION FORM (ENGLISH LOCALIZED) */}
       <div className="w-full lg:w-[40%] flex flex-col items-center justify-center p-8 md:p-20 relative z-20">
         <div className="w-full max-w-[420px] space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
 
@@ -128,7 +132,7 @@ export default function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPwd(!showPwd)}
-                                className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-blue-600 transition-colors"
+                                className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-blue-600 transition-colors"
                             >
                                 {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
@@ -139,7 +143,7 @@ export default function LoginPage() {
                 <button
                     disabled={loading}
                     type="submit"
-                    className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] font-black uppercase tracking-widest text-sm"
+                    className="w-full h-16 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] font-black uppercase tracking-widest text-sm"
                 >
                     {loading ? (
                         <Loader2 className="animate-spin" size={24} />
