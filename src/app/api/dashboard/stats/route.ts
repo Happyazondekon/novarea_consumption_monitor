@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getKPICards, getChartData } from "@/lib/queries/consumption";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -23,7 +25,7 @@ export async function GET(req: Request) {
     console.log(`[STATS_API] Fetching ${resource} for ${period}...`);
 
     const [kpis, charts] = await Promise.all([
-        getKPICards(resource),
+        getKPICards(resource, targetDate),
         getChartData(resource, period, targetDate)
     ]);
 
