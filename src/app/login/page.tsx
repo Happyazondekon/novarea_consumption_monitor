@@ -70,10 +70,10 @@ function LoginForm() {
                 />
             </div>
 
-            {/* Security Key */}
+            {/* Password */}
             <div className="space-y-4 text-left">
                 <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">
-                    SECURITY KEY
+                    PASSWORD
                 </label>
                 <div className="relative">
                     <input
@@ -115,10 +115,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex bg-white dark:bg-[#09090b] transition-colors duration-500 selection:bg-blue-500/30 font-sans">
+    <div className="h-screen w-screen flex bg-white dark:bg-[#09090b] transition-colors duration-500 selection:bg-blue-500/30 font-sans overflow-hidden">
 
-      {/* LEFT SIDE: BRANDING PANEL (BOTTOM-LEFT ALIGNED) */}
-      <div className="hidden lg:flex lg:w-[60%] relative overflow-hidden bg-zinc-50 dark:bg-zinc-900/20">
+      {/* LEFT SIDE: BRANDING PANEL (TOP-LEFT ALIGNED) */}
+      <div className="hidden lg:flex lg:w-[60%] h-full relative overflow-hidden bg-zinc-50 dark:bg-zinc-900/20">
         <div className="absolute inset-0 z-0">
             <Image
                 src="/login-bg.png"
@@ -131,7 +131,7 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-white dark:to-[#09090b] w-full" />
         </div>
 
-        <div className="relative z-10 w-full h-full flex flex-col justify-start pt-[35%] pl-[45%] pr-16">
+        <div className="relative z-10 w-full h-full flex flex-col justify-start pt-[25%] pl-[45%] pr-16">
             <div className="space-y-1">
                 {/* Horizontal bar ABOVE text */}
                 <div className="w-16 h-1 bg-blue-600 mb-6" />
@@ -146,7 +146,7 @@ export default function LoginPage() {
       </div>
 
       {/* RIGHT SIDE: AUTHENTICATION FORM (ENGLISH LOCALIZED) */}
-      <div className="w-full lg:w-[40%] flex flex-col items-center justify-center p-8 md:p-20 relative z-20">
+      <div className="w-full lg:w-[40%] h-full flex flex-col items-center justify-center p-8 md:p-20 relative z-20 overflow-y-auto custom-scrollbar">
         <div className="w-full max-w-[420px] space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
 
             <div className="space-y-8">
