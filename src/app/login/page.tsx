@@ -38,11 +38,10 @@ function LoginForm() {
         Swal.fire({
           icon: 'error',
           title: 'Access Denied',
-          text: 'Invalid system ID or security key.',
+          text: 'Invalid system ID or password.',
           confirmButtonColor: '#2563eb'
         });
       } else {
-        // Use window.location for a hard redirect to bypass potential middleware/router loops in production
         window.location.href = callbackUrl;
       }
     } catch (error) {
@@ -53,11 +52,10 @@ function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleLogin} className="space-y-10">
-        <div className="space-y-8">
-            {/* Identifiant */}
-            <div className="space-y-4 text-left">
-                <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">
+    <form onSubmit={handleLogin} className="space-y-6 md:space-y-10 w-full">
+        <div className="space-y-6">
+            <div className="space-y-2 text-left">
+                <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-300 uppercase tracking-widest ml-1">
                     IDENTIFIANT
                 </label>
                 <input
@@ -65,14 +63,13 @@ function LoginForm() {
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full bg-[#f4f4f5] dark:bg-[#1e2330] border-2 border-transparent dark:border-transparent rounded-2xl px-6 py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none focus:ring-4 focus:ring-blue-600/5 transition-all shadow-inner"
+                    className="w-full bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-2xl px-6 py-4 md:py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none focus:ring-4 focus:ring-blue-500/20 transition-all shadow-inner backdrop-blur-sm"
                     placeholder="Enter your system ID"
                 />
             </div>
 
-            {/* Password */}
-            <div className="space-y-4 text-left">
-                <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest ml-1">
+            <div className="space-y-2 text-left">
+                <label className="text-[10px] font-black text-zinc-400 dark:text-zinc-300 uppercase tracking-widest ml-1">
                     PASSWORD
                 </label>
                 <div className="relative">
@@ -81,13 +78,13 @@ function LoginForm() {
                         type={showPwd ? "text" : "password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-[#f4f4f5] dark:bg-[#1e2330] border-2 border-transparent dark:border-transparent rounded-2xl px-6 py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none focus:ring-4 focus:ring-blue-600/5 transition-all shadow-inner"
+                        className="w-full bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10 rounded-2xl px-6 py-4 md:py-5 text-sm font-bold text-zinc-900 dark:text-white placeholder:text-zinc-500 dark:placeholder:text-zinc-400 outline-none focus:ring-4 focus:ring-blue-500/20 transition-all shadow-inner backdrop-blur-sm"
                         placeholder="••••••••••••"
                     />
                     <button
                         type="button"
                         onClick={() => setShowPwd(!showPwd)}
-                        className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-blue-600 transition-colors"
+                        className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400 hover:text-blue-500 transition-colors"
                     >
                         {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -98,16 +95,9 @@ function LoginForm() {
         <button
             disabled={loading}
             type="submit"
-            className="w-full h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] font-black uppercase tracking-widest text-sm"
+            className="w-full h-14 md:h-16 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-xl shadow-blue-900/40 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] font-black uppercase tracking-widest text-sm"
         >
-            {loading ? (
-                <Loader2 className="animate-spin" size={24} />
-            ) : (
-                <>
-                    LOGIN
-                    <ArrowRight size={18} />
-                </>
-            )}
+            {loading ? <Loader2 className="animate-spin" size={24} /> : <>LOGIN <ArrowRight size={18} /></>}
         </button>
     </form>
   );
@@ -115,53 +105,64 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="h-screen w-screen flex bg-white dark:bg-[#09090b] transition-colors duration-500 selection:bg-blue-500/30 font-sans overflow-hidden">
+    <div className="h-screen w-screen flex bg-black transition-colors duration-500 selection:bg-blue-500/30 font-sans overflow-hidden relative">
 
-      {/* LEFT SIDE: BRANDING PANEL (TOP-LEFT ALIGNED) */}
-      <div className="hidden lg:flex lg:w-[60%] h-full relative overflow-hidden bg-zinc-50 dark:bg-zinc-900/20">
-        <div className="absolute inset-0 z-0">
-            <Image
-                src="/login-bg.png"
-                alt="Branding"
-                fill
-                className="object-cover opacity-80 transition-transform duration-[20s] hover:scale-105"
-                priority
-            />
-            {/* Theme-aware signature bleed */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-white dark:to-[#09090b] w-full" />
-        </div>
-
-        <div className="relative z-10 w-full h-full flex flex-col justify-start pt-[25%] pl-[45%] pr-16">
-            <div className="space-y-1">
-                {/* Horizontal bar ABOVE text */}
-                <div className="w-16 h-1 bg-blue-600 mb-6" />
-                <h1 className="text-6xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-[0.9]">
-                    MONITORING <br /> <span className="text-blue-600">PLATFORM</span>
-                </h1>
-                <p className="text-zinc-900 dark:text-zinc-100 font-bold uppercase text-[10px] tracking-[0.2em] max-w-md mt-10 leading-relaxed">
-                    INTEGRATED ELECTRICITY AND WATER CONSUMPTION MONITORING REPORT for Novarea Textiles.
-                </p>
-            </div>
-        </div>
+      {/* GLOBAL BACKGROUND */}
+      <div className="absolute inset-0 z-0">
+        <Image
+            src="/login-bg.png"
+            alt="Branding"
+            fill
+            className="object-cover opacity-60 lg:opacity-70 transition-transform duration-[30s] scale-110"
+            style={{ objectPosition: 'center 25%' }}
+            priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-black/40 to-black/80 lg:bg-gradient-to-r lg:from-black/60 lg:to-transparent" />
       </div>
 
-      {/* RIGHT SIDE: AUTHENTICATION FORM (ENGLISH LOCALIZED) */}
-      <div className="w-full lg:w-[40%] h-full flex flex-col items-center justify-center p-8 md:p-20 relative z-20 overflow-y-auto custom-scrollbar">
-        <div className="w-full max-w-[420px] space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+      <div className="w-full h-full flex flex-col lg:flex-row relative z-10">
 
-            <div className="space-y-8">
-                <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center border border-blue-100 dark:border-blue-500/20">
-                    <Shield className="text-blue-600 dark:text-blue-500" size={24} />
-                </div>
-                <div className="space-y-1 text-left">
-                    <h2 className="text-4xl font-black text-zinc-900 dark:text-white uppercase tracking-tight">AUTHENTICATION</h2>
-                    <p className="text-zinc-500 dark:text-zinc-500 font-bold uppercase text-[10px] tracking-widest">ACCESS YOUR SECURE WORKSPACE</p>
+        {/* DESKTOP BRANDING (Bottom-Left weighted on Desktop) */}
+        <div className="hidden lg:flex lg:w-[55%] h-full flex-col justify-end items-start pb-20 pl-24">
+            <div className="space-y-1 text-left animate-in fade-in slide-in-from-left-8 duration-1000">
+                <div className="w-16 h-1 bg-blue-600 mb-6" />
+                <h1 className="text-6xl font-black text-white uppercase tracking-tighter leading-[0.9]">
+                    MONITORING <br /> <span className="text-blue-500">PLATFORM</span>
+                </h1>
+                <div className="max-w-md mt-10">
+                    <p className="text-zinc-200 font-bold uppercase text-[10px] tracking-[0.2em] leading-relaxed text-justify opacity-80">
+                        INTEGRATED ELECTRICITY AND WATER CONSUMPTION MONITORING REPORT for Novarea Textiles Benin.
+                    </p>
                 </div>
             </div>
+        </div>
 
-            <Suspense fallback={<div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>}>
-                <LoginForm />
-            </Suspense>
+        {/* AUTHENTICATION CORE (Glassmorphism Right Panel) */}
+        <div className="w-full lg:w-[45%] h-full flex flex-col items-center lg:items-end justify-center p-6 md:p-20 overflow-y-auto custom-scrollbar lg:pr-32">
+            <div className="w-full max-w-[440px] bg-white/10 dark:bg-zinc-900/40 backdrop-blur-3xl p-8 md:p-12 rounded-[2.5rem] border border-white/20 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] space-y-10 animate-in fade-in slide-in-from-right-8 duration-1000">
+
+                <div className="space-y-6 md:space-y-8 text-center lg:text-left">
+                    <div className="flex justify-center lg:justify-start">
+                        <div className="w-16 h-16 relative">
+                            <Image src="/logo-site.png" alt="Logo" fill className="object-contain filter drop-shadow-2xl" />
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tight leading-none">AUTHENTICATION</h2>
+                        <p className="text-zinc-400 font-bold uppercase text-[10px] tracking-widest mt-2">ACCESS YOUR SECURE WORKSPACE</p>
+                    </div>
+                </div>
+
+                <Suspense fallback={<div className="h-40 flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div>}>
+                    <LoginForm />
+                </Suspense>
+
+                <div className="pt-2 text-center lg:text-left">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest opacity-60">
+                        Industrial Monitoring Infrastructure Benin
+                    </p>
+                </div>
+            </div>
         </div>
       </div>
     </div>
