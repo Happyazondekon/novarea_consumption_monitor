@@ -52,10 +52,13 @@ export async function GET(req: Request) {
 
     mainSheet.addRow([]); // Spacer
 
+    // Calculate total consumption from the readings in the period
+    const totalConsumed = data.readings.reduce((sum, r) => sum + r.consumption, 0);
+
     // 2. Summary Stats
     mainSheet.addRow(["Metric", "Value", "Unit"]);
     mainSheet.getRow(mainSheet.rowCount).font = { bold: true };
-    mainSheet.addRow(["Total Consumption", data.usageToday, resource === 'POWER' ? 'kWh' : 'm³']);
+    mainSheet.addRow(["Total Consumption in Period", totalConsumed.toFixed(2), resource === 'POWER' ? 'kWh' : 'm³']);
     mainSheet.addRow(["Average (Aggregated)", data.referenceAverage, resource === 'POWER' ? 'kWh' : 'm³']);
     mainSheet.addRow(["Increase Events", data.eventSummary.ie, "IE"]);
     mainSheet.addRow(["Decrease Events", data.eventSummary.de, "DE"]);
