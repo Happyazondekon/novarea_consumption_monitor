@@ -23,6 +23,7 @@ export async function POST(req: Request) {
           value: parseFloat(value),
           photoUrl: photoData,
           timeOfDay: timeOfDay || (new Date().getHours() < 13 ? "MORNING" : "EVENING"),
+          isEdited: true // All new readings start as PENDING (Pending status is triggered by isEdited=true)
         },
       });
 
