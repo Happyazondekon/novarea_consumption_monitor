@@ -85,6 +85,7 @@ export default function DailyEventsPage() {
   const handleSaveEvents = async () => {
     if (selectedIds.length === 0) return;
 
+    // Check if mandatory descriptions (Other) are filled, though user wants ALL events to have descriptions
     const missingDesc = selectedIds.some(id => {
         const type = eventTypes.find(t => t.id === id);
         return type?.code.startsWith('OTH') && !customDescriptions[id]?.trim();
@@ -149,7 +150,7 @@ export default function DailyEventsPage() {
                   ? "bg-blue-600 text-white border-blue-600 shadow-lg"
                   : activeStep > s.id
                     ? "bg-blue-50 text-blue-600 border-blue-100"
-                    : "bg-white dark:bg-zinc-900 text-zinc-400 border-zinc-100 dark:border-zinc-800"
+                    : "bg-white dark:bg-zinc-900 text-zinc-400 border-zinc-200 dark:border-zinc-800"
               )}
             >
               <s.icon size={16} className="mb-1" />
@@ -158,7 +159,7 @@ export default function DailyEventsPage() {
           ))}
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden min-h-[400px] flex flex-col">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden min-h-[400px] flex flex-col">
           <div className="p-6 lg:p-8 flex-1">
              {activeStep === 0 && (
                 <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 text-center">
@@ -187,7 +188,7 @@ export default function DailyEventsPage() {
 
              {activeStep === 1 && (
                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-                   <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-50 dark:border-zinc-800 pb-4 gap-4">
+                   <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4 gap-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600">
                            {selectedCategory === 'POWER' ? <Zap size={20}/> : <Droplets size={20}/>}
@@ -210,14 +211,16 @@ export default function DailyEventsPage() {
                             {eventTypes.filter(t => t.category === selectedCategory && t.type === 'INCREASE').map(type => (
                                <div key={type.id} className="space-y-2">
                                     <TypeRow type={type} selected={selectedIds.includes(type.id)} onToggle={() => toggleTypeId(type.id)} />
-                                    {selectedIds.includes(type.id) && type.code.startsWith('OTH') && (
-                                        <input
-                                            autoFocus
-                                            value={customDescriptions[type.id] || ""}
-                                            onChange={(e) => updateCustomDescription(type.id, e.target.value)}
-                                            className="w-full bg-zinc-50 dark:bg-zinc-800 border-b border-blue-600 p-2 text-[9px] font-bold outline-none"
-                                            placeholder="DESCRIBE..."
-                                        />
+                                    {selectedIds.includes(type.id) && (
+                                        <div className="animate-in slide-in-from-top-2 duration-300">
+                                          <input
+                                              autoFocus
+                                              value={customDescriptions[type.id] || ""}
+                                              onChange={(e) => updateCustomDescription(type.id, e.target.value)}
+                                              className="w-full bg-zinc-50 dark:bg-zinc-800 border-b border-blue-600 p-2 text-[10px] font-bold outline-none placeholder:text-zinc-400"
+                                              placeholder={`Optional note for ${type.code}...`}
+                                          />
+                                        </div>
                                     )}
                                </div>
                             ))}
@@ -231,14 +234,16 @@ export default function DailyEventsPage() {
                             {eventTypes.filter(t => t.category === selectedCategory && t.type === 'DECREASE').map(type => (
                                <div key={type.id} className="space-y-2">
                                     <TypeRow type={type} selected={selectedIds.includes(type.id)} onToggle={() => toggleTypeId(type.id)} />
-                                    {selectedIds.includes(type.id) && type.code.startsWith('OTH') && (
-                                        <input
-                                            autoFocus
-                                            value={customDescriptions[type.id] || ""}
-                                            onChange={(e) => updateCustomDescription(type.id, e.target.value)}
-                                            className="w-full bg-zinc-50 dark:bg-zinc-800 border-b border-blue-600 p-2 text-[9px] font-bold outline-none"
-                                            placeholder="DESCRIBE..."
-                                        />
+                                    {selectedIds.includes(type.id) && (
+                                        <div className="animate-in slide-in-from-top-2 duration-300">
+                                          <input
+                                              autoFocus
+                                              value={customDescriptions[type.id] || ""}
+                                              onChange={(e) => updateCustomDescription(type.id, e.target.value)}
+                                              className="w-full bg-zinc-50 dark:bg-zinc-800 border-b border-blue-600 p-2 text-[10px] font-bold outline-none placeholder:text-zinc-400"
+                                              placeholder={`Optional note for ${type.code}...`}
+                                          />
+                                        </div>
                                     )}
                                </div>
                             ))}
@@ -261,9 +266,14 @@ export default function DailyEventsPage() {
                    </div>
                    <div className="w-full max-w-xs space-y-2">
                         {selectedIds.map(id => (
-                            <div key={id} className="flex items-center gap-2.5 bg-zinc-50 dark:bg-zinc-800 p-3 rounded-xl border border-zinc-100 dark:border-zinc-700 text-left">
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                                <span className="text-[9px] font-black uppercase truncate">{eventTypes.find(t => t.id === id)?.description}</span>
+                            <div key={id} className="flex flex-col gap-1 bg-zinc-50 dark:bg-zinc-800 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-left">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                                  <span className="text-[9px] font-black uppercase truncate">{eventTypes.find(t => t.id === id)?.description}</span>
+                                </div>
+                                {customDescriptions[id] && (
+                                  <p className="text-[8px] font-bold text-zinc-400 italic ml-4">"{customDescriptions[id]}"</p>
+                                )}
                             </div>
                         ))}
                    </div>
@@ -271,7 +281,7 @@ export default function DailyEventsPage() {
              )}
           </div>
 
-          <div className="bg-zinc-50 dark:bg-zinc-800/50 p-4 lg:p-6 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800">
+          <div className="bg-zinc-50 dark:bg-zinc-800/50 p-4 lg:p-6 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800">
              <button onClick={() => setActiveStep(prev => prev - 1)} disabled={activeStep === 0} className="text-[9px] font-black uppercase tracking-widest text-zinc-400 disabled:opacity-0 transition-all">PREVIOUS</button>
              {activeStep < 2 ? (
                 <button onClick={() => setActiveStep(prev => prev + 1)} disabled={activeStep === 0 && !selectedCategory} className="btn-primary px-8 py-2.5 rounded-xl text-[9px] font-black uppercase">NEXT STEP</button>
@@ -289,7 +299,7 @@ export default function DailyEventsPage() {
 
   return (
     <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-6 px-2">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6 px-2">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-600 mb-0.5">Audit Log</p>
           <h1 className="text-2xl lg:text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Daily Context</h1>
@@ -328,21 +338,23 @@ function ResourceBlock({ title, icon: Icon, color, increaseEvents, decreaseEvent
 
             <div className="grid grid-cols-1 gap-2">
                 {[...increaseEvents, ...decreaseEvents].map((ev: any) => (
-                    <div key={ev.id} className="p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-50 dark:border-zinc-800 flex items-center justify-between group shadow-sm">
+                    <div key={ev.id} className="p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between group shadow-sm">
                         <div className="flex items-center gap-3 overflow-hidden">
                             <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-[7px] font-black uppercase shrink-0", ev.eventType.type === 'INCREASE' ? "bg-red-50 text-red-500" : "bg-green-50 text-green-500")}>
                                 {ev.eventType.type === 'INCREASE' ? "INC" : "DEC"}
                             </div>
                             <div className="overflow-hidden">
                                 <p className="text-[10px] font-bold text-zinc-900 dark:text-white uppercase leading-none truncate">{ev.eventType.description}</p>
-                                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mt-1.5 truncate">{ev.eventType.code} {ev.comment ? `• ${ev.comment}` : ''}</p>
+                                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mt-1.5 truncate">
+                                  {ev.eventType.code} {ev.comment ? <span className="text-blue-600 ml-1">• {ev.comment}</span> : ''}
+                                </p>
                             </div>
                         </div>
-                        <button onClick={() => onDelete(ev.id)} className="p-1.5 text-zinc-200 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                        <button onClick={() => onDelete(ev.id)} className="p-1.5 text-zinc-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
                     </div>
                 ))}
                 {increaseEvents.length === 0 && decreaseEvents.length === 0 && (
-                    <div className="py-8 text-center border-2 border-dashed border-zinc-50 dark:border-zinc-800 rounded-2xl">
+                    <div className="py-8 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
                         <p className="text-[9px] font-black text-zinc-300 uppercase">Empty Log</p>
                     </div>
                 )}
@@ -353,7 +365,7 @@ function ResourceBlock({ title, icon: Icon, color, increaseEvents, decreaseEvent
 
 function SelectionCard({ label, icon: Icon, active, onClick, color }: any) {
     return (
-        <button onClick={onClick} className={cn("p-6 flex flex-col items-center gap-4 rounded-3xl border-2 transition-all group", active ? "border-blue-600 bg-blue-50 dark:bg-blue-900/10" : "border-zinc-50 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:border-blue-200")}>
+        <button onClick={onClick} className={cn("p-6 flex flex-col items-center gap-4 rounded-3xl border-2 transition-all group", active ? "border-blue-600 bg-blue-50 dark:bg-blue-900/10" : "border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:border-blue-200")}>
             <div className={cn("p-4 rounded-2xl bg-white dark:bg-zinc-800 shadow-sm transition-transform group-hover:scale-105", color)}><Icon size={32} /></div>
             <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
         </button>
@@ -362,7 +374,7 @@ function SelectionCard({ label, icon: Icon, active, onClick, color }: any) {
 
 function TypeRow({ type, selected, onToggle }: any) {
     return (
-        <button onClick={onToggle} className={cn("w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left group", selected ? "bg-blue-600 border-blue-600 text-white shadow-md" : "bg-white dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50")}>
+        <button onClick={onToggle} className={cn("w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left group", selected ? "bg-blue-600 border-blue-600 text-white shadow-md" : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50")}>
             <div className="flex items-center gap-3 overflow-hidden">
                 <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center font-black text-[8px] shrink-0", selected ? "bg-white/20" : "bg-zinc-50 dark:bg-zinc-900 text-blue-600")}>{type.code}</div>
                 <span className="text-[9px] font-black uppercase tracking-tight leading-none truncate">{type.description}</span>
