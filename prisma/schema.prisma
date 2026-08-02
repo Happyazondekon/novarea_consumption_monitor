@@ -49,19 +49,27 @@ model MeterReading {
   timeOfDay    String         // "MORNING" | "EVENING"
   isEdited     Boolean        @default(false)
   isDeleted    Boolean        @default(false)
-  consumption  Consumption?   // Relation to Consumption
+  consumption  Consumption[]  // One reading can be the END of multiple consumption days (if interpolated)
+}
+
+enum ConsumptionSource {
+  MEASURED
+  INTERPOLATED
 }
 
 model Consumption {
-  id            String       @id @default(cuid())
+  id            String            @id @default(cuid())
   date          DateTime
-  category      String       // "WATER" | "POWER"
-  previousValue Float
-  currentValue  Float
+  category      String            // "WATER" | "POWER"
+  previousValue Float?            // Nullable for intermediate interpolated days
+  currentValue  Float?            // Nullable for intermediate interpolated days
   consumption   Float
-  createdAt     DateTime     @default(now())
-  readingId     String?      @unique // Link to the MeterReading that generated this delta
-  reading       MeterReading? @relation(fields: [readingId], references: [id], onDelete: Cascade)
+  source        ConsumptionSource @default(MEASURED)
+  gapStartDate  DateTime?
+  gapEndDate    DateTime?
+  createdAt     DateTime          @default(now())
+  readingId     String?           // Link to the MeterReading that closed this gap (optional for intermediate days)
+  reading       MeterReading?     @relation(fields: [readingId], references: [id], onDelete: Cascade)
 }
 
 model EventType {

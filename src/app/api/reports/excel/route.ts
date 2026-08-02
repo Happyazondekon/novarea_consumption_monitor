@@ -52,14 +52,13 @@ export async function GET(req: Request) {
 
     mainSheet.addRow([]); // Spacer
 
-    // Calculate total consumption from the readings in the period
     const totalConsumed = data.readings.reduce((sum, r) => sum + r.consumption, 0);
 
     // 2. Summary Stats
     mainSheet.addRow(["Metric", "Value", "Unit"]);
     mainSheet.getRow(mainSheet.rowCount).font = { bold: true };
-    mainSheet.addRow(["Total Consumption in Period", totalConsumed.toFixed(2), resource === 'POWER' ? 'kWh' : 'm³']);
-    mainSheet.addRow(["Average (Aggregated)", data.referenceAverage, resource === 'POWER' ? 'kWh' : 'm³']);
+    mainSheet.addRow(["Total Consumption", totalConsumed.toFixed(2), resource === 'POWER' ? 'kWh' : 'm³']);
+    mainSheet.addRow(["Average (Aggregated)", data.referenceAverage.toFixed(2), resource === 'POWER' ? 'kWh' : 'm³']);
     mainSheet.addRow(["Increase Events", data.eventSummary.ie, "IE"]);
     mainSheet.addRow(["Decrease Events", data.eventSummary.de, "DE"]);
 
@@ -70,19 +69,25 @@ export async function GET(req: Request) {
             { header: 'Timestamp', key: 'date', width: 25 },
             { header: 'Prev Index', key: 'prev', width: 15 },
             { header: 'Curr Index', key: 'curr', width: 15 },
-            { header: `Consumed (${resource === 'POWER' ? 'KWH' : 'M³'})`, key: 'cons', width: 15 }
+            { header: `Consumed (${resource === 'POWER' ? 'KWH' : 'M³'})`, key: 'cons', width: 15 },
+            { header: 'Source', key: 'source', width: 15 }
         ];
         consSheet.getRow(1).font = { bold: true };
         consSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
 
         data.readings.forEach((r: any) => {
+            const isInterpolated = r.source === 'INTERPOLATED';
             consSheet.addRow({
                 date: format(new Date(r.date), 'dd/MM/yyyy HH:mm'),
-                prev: r.previousValue,
-                curr: r.currentValue,
-                cons: r.consumption
+                prev: r.previousValue ? r.previousValue.toFixed(2) : '-',
+                curr: r.currentValue ? r.currentValue.toFixed(2) : '-',
+                cons: `${r.consumption.toFixed(2)}${isInterpolated ? '*' : ''}`,
+                source: r.source === 'INTERPOLATED' ? 'Interpolated' : 'Measured'
             });
         });
+
+        consSheet.addRow([]);
+        consSheet.addRow(["* Value estimated by linear interpolation of measured total (no reading captured this day)."]);
     }
 
     // 4. Optional Event Log

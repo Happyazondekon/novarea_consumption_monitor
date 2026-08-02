@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { recalculateCategoryConsumption } from "@/lib/consumption/interpolate";
 
 export const dynamic = "force-dynamic";
 
@@ -28,37 +29,12 @@ export async function POST(req: Request) {
           isEdited: true // All new readings start as PENDING
         },
       });
-
-      // 2. Find the most recent VALID (non-deleted) reading to use as baseline
-      const previousReading = await tx.meterReading.findFirst({
-        where: {
-          category,
-          timestamp: { lt: newReading.timestamp },
-          isDeleted: false // CRITICAL: Only use actual data
-        },
-        orderBy: { timestamp: 'desc' }
-      });
-
-      // 3. Create Consumption delta ONLY if we have a real baseline
-      if (previousReading) {
-        const consumptionValue = currentValue - previousReading.value;
-        // Logic: If someone enters a value LOWER than previous, we don't record negative consumption
-        if (consumptionValue >= 0) {
-            await tx.consumption.create({
-                data: {
-                    readingId: newReading.id, // Explicit link for cascade delete
-                    date: newReading.timestamp,
-                    category,
-                    previousValue: previousReading.value,
-                    currentValue: currentValue,
-                    consumption: consumptionValue
-                }
-            });
-        }
-      }
-
       return newReading;
     });
+
+    // 2. Trigger async recalculation of all deltas for this category
+    // This ensures gaps are correctly filled even if readings are out of order
+    await recalculateCategoryConsumption(category);
 
     return NextResponse.json(reading);
   } catch (error) {
@@ -78,7 +54,7 @@ export async function GET(req: Request) {
     const readings = await prisma.meterReading.findMany({
       where: {
           ...( (session.user as any).role === 'ELECTRICIEN' ? { userId: (session.user as any).id } : {} ),
-          isDeleted: false // Don't show deleted ones in list
+          isDeleted: false
       },
       orderBy: { timestamp: 'desc' },
       take: limit,

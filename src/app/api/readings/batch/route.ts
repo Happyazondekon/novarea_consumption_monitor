@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { recalculateCategoryConsumption } from "@/lib/consumption/interpolate";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -17,21 +18,27 @@ export async function POST(req: Request) {
     }
 
     if (action === "DELETE") {
-        // Find targeted readings that belong to the user (if not admin)
+        // Find targeted readings to know their categories
         const readings = await prisma.meterReading.findMany({
             where: {
                 id: { in: ids },
                 ...(role !== 'ADMINISTRATEUR' ? { userId } : {})
             },
-            select: { id: true }
+            select: { id: true, category: true }
         });
 
         const targetIds = readings.map(r => r.id);
+        const uniqueCategories = Array.from(new Set(readings.map(r => r.category)));
 
         // Delete all at once. Consumption records will auto-delete due to Cascade
         await prisma.meterReading.deleteMany({
             where: { id: { in: targetIds } }
         });
+
+        // Recalculate affected categories
+        for (const cat of uniqueCategories) {
+            await recalculateCategoryConsumption(cat);
+        }
 
         return NextResponse.json({ message: "Batch removal complete" });
     }
