@@ -16,7 +16,7 @@ An elite, industrial-grade monitoring ecosystem designed for **Novarea Textiles 
 ### 📊 Real-Time Analytics Engine
 - **Industrial KPIs:** Live tracking of daily consumption, averages, and anomaly counts.
 - **Dynamic Charts:** Interactive dual-axis trend analysis (Consumption vs. Events).
-- **Contextual Awareness:** Integrated event codes (PTR, GPO, etc.) directly on data points for VISSIM-style root cause analysis.
+- **Contextual Awareness:** Integrated event codes (PTR, GPO, etc.) directly on data points for root cause analysis.
 
 ### 📱 Mobile-First PWA Experience
 - **Progressive Web App:** Fully "Installable" on iOS and Android with official branding.

@@ -11,28 +11,30 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Restrict global stats to Administrators
     if ((session.user as any).role !== 'ADMINISTRATEUR') {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
     const resource = searchParams.get("resource") || "POWER";
-    const period = (searchParams.get("period") || "WEEK") as "WEEK" | "MONTH" | "YEAR";
+    const period = (searchParams.get("period") || "WEEK") as "WEEK" | "MONTH" | "YEAR" | "CUSTOM";
     const dateStr = searchParams.get("date");
     const targetDate = dateStr ? new Date(dateStr) : new Date();
 
-    console.log(`[STATS_API] Fetching ${resource} for ${period}...`);
+    const customStart = searchParams.get("customStart") ? new Date(searchParams.get("customStart")!) : undefined;
+    const customEnd = searchParams.get("customEnd") ? new Date(searchParams.get("customEnd")!) : undefined;
+    const aggregation = (searchParams.get("aggregation") || "DAY") as "DAY" | "WEEK" | "MONTH";
+
+    console.log(`[STATS_API] Fetching ${resource} for ${period} (Agg: ${aggregation})...`);
 
     const [kpis, charts] = await Promise.all([
         getKPICards(resource, targetDate),
-        getChartData(resource, period, targetDate)
+        getChartData(resource, period, targetDate, customStart, customEnd, aggregation)
     ]);
 
     return NextResponse.json({
       ...kpis,
-      chartData: charts.chartData,
-      eventTypes: charts.eventTypes
+      ...charts
     });
   } catch (error: any) {
     console.error("[STATS_API_ERROR]", error);

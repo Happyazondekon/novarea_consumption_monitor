@@ -3,18 +3,14 @@ import {
   startOfDay, endOfDay, subDays, startOfWeek, endOfWeek,
   startOfMonth, endOfMonth, eachDayOfInterval, format,
   isSameDay, startOfYear, endOfYear, eachMonthOfInterval,
-  isSameMonth, eachWeekOfInterval, differenceInDays, isSameWeek
+  isSameMonth, max
 } from "date-fns";
 
-/**
- * KPI Cards for Dashboard
- * Always based on a specific date (usually today)
- */
 export async function getKPICards(resource: string = "POWER", targetDate: Date = new Date()) {
   const start = startOfDay(targetDate);
   const end = endOfDay(targetDate);
 
-  // 1. Last Reading (Most recent absolute index)
+  // 1. Last Reading (Value of the most recent reading for this resource)
   const lastReadingRaw = await prisma.meterReading.findFirst({
     where: { category: resource, isDeleted: false },
     orderBy: { timestamp: 'desc' },
@@ -22,7 +18,7 @@ export async function getKPICards(resource: string = "POWER", targetDate: Date =
   });
   const lastReading = lastReadingRaw?.value || 0;
 
-  // 2. Usage Total Today (Sum of consumption deltas recorded today)
+  // 2. Usage Total Today (Sum of consumption for this resource today)
   const usageToday = await prisma.consumption.aggregate({
     where: { category: resource, date: { gte: start, lte: end } },
     _sum: { consumption: true }
@@ -36,7 +32,7 @@ export async function getKPICards(resource: string = "POWER", targetDate: Date =
     }
   });
 
-  // 4. Daily Average (30-day baseline average)
+  // 4. Daily Average (30-day verified average for this resource)
   const thirtyDaysAgo = subDays(start, 30);
   const totalConsumption30 = await prisma.consumption.aggregate({
     where: { category: resource, date: { gte: thirtyDaysAgo, lte: end } },
@@ -49,7 +45,10 @@ export async function getKPICards(resource: string = "POWER", targetDate: Date =
   });
 
   const distinctDays = new Set(daysWithDataRaw.map(d => format(d.date, 'yyyy-MM-dd'))).size;
-  const avg = distinctDays > 0 ? (totalConsumption30._sum.consumption || 0) / distinctDays : 0;
+
+  const avg = distinctDays > 0
+    ? (totalConsumption30._sum.consumption || 0) / distinctDays
+    : 0;
 
   return {
     lastReading: lastReading.toFixed(2),
@@ -59,42 +58,27 @@ export async function getKPICards(resource: string = "POWER", targetDate: Date =
   };
 }
 
-/**
- * Chart Data with Custom Ranges and Dynamic Aggregation
- */
-export async function getChartData(
-    resource: string,
-    period: "WEEK" | "MONTH" | "YEAR" | "CUSTOM",
-    targetDate: Date = new Date(),
-    customStart?: Date,
-    customEnd?: Date,
-    aggregation: "DAY" | "WEEK" | "MONTH" = "DAY"
-) {
+export async function getChartData(resource: string, period: "WEEK" | "MONTH" | "YEAR", targetDate: Date = new Date()) {
   let startDate: Date;
   let endDate: Date;
+  let interval: Date[];
+  let granularity: "day" | "month";
 
   if (period === "WEEK") {
     startDate = startOfWeek(targetDate, { weekStartsOn: 1 });
     endDate = endOfWeek(targetDate, { weekStartsOn: 1 });
+    interval = eachDayOfInterval({ start: startDate, end: endDate });
+    granularity = "day";
   } else if (period === "MONTH") {
     startDate = startOfMonth(targetDate);
     endDate = endOfMonth(targetDate);
-  } else if (period === "YEAR") {
+    interval = eachDayOfInterval({ start: startDate, end: endDate });
+    granularity = "day";
+  } else {
     startDate = startOfYear(targetDate);
     endDate = endOfYear(targetDate);
-  } else {
-    startDate = startOfDay(customStart || subDays(new Date(), 7));
-    endDate = endOfDay(customEnd || new Date());
-  }
-
-  // Determine buckets based on aggregation
-  let interval: Date[];
-  if (aggregation === "WEEK") {
-    interval = eachWeekOfInterval({ start: startDate, end: endDate }, { weekStartsOn: 1 });
-  } else if (aggregation === "MONTH") {
     interval = eachMonthOfInterval({ start: startDate, end: endDate });
-  } else {
-    interval = eachDayOfInterval({ start: startDate, end: endDate });
+    granularity = "month";
   }
 
   const consumptions = await prisma.consumption.findMany({
@@ -109,93 +93,60 @@ export async function getChartData(
     include: { eventType: true }
   });
 
-  let totalConsumptionInPeriod = 0;
-  let bucketsWithDataCount = 0;
+  const eventTypesUsed = await prisma.eventType.findMany({
+      where: {
+        dailyEvents: {
+            some: {
+                date: { gte: startDate, lte: endDate },
+                eventType: { category: { in: [resource, "BOTH"] } }
+            }
+        }
+      }
+  });
 
-  const chartData = interval.map(bucketDate => {
+  const chartData = interval.map(date => {
     let bucketConsump = 0;
-    let bucketEventCount = 0;
+    let bucketEvents = 0;
     let bucketEventCodes: string[] = [];
 
-    if (aggregation === "DAY") {
+    if (granularity === "day") {
         bucketConsump = consumptions
-            .filter(c => isSameDay(c.date, bucketDate))
+            .filter(c => isSameDay(c.date, date))
             .reduce((sum, c) => sum + c.consumption, 0);
 
-        const dayEvents = events.filter(e => isSameDay(e.date, bucketDate));
-        bucketEventCount = dayEvents.length;
+        const dayEvents = events.filter(e => isSameDay(e.date, date));
+        bucketEvents = dayEvents.length;
         bucketEventCodes = dayEvents.map(e => e.eventType.code);
-    } else if (aggregation === "WEEK") {
+    } else {
         bucketConsump = consumptions
-            .filter(c => isSameWeek(c.date, bucketDate, { weekStartsOn: 1 }))
+            .filter(c => isSameMonth(c.date, date))
             .reduce((sum, c) => sum + c.consumption, 0);
 
-        const weekEvents = events.filter(e => isSameWeek(e.date, bucketDate, { weekStartsOn: 1 }));
-        bucketEventCount = weekEvents.length;
-        bucketEventCodes = Array.from(new Set(weekEvents.map(e => e.eventType.code)));
-    } else { // MONTH
-        bucketConsump = consumptions
-            .filter(c => isSameMonth(c.date, bucketDate))
-            .reduce((sum, c) => sum + c.consumption, 0);
-
-        const monthEvents = events.filter(e => isSameMonth(e.date, bucketDate));
-        bucketEventCount = monthEvents.length;
+        const monthEvents = events.filter(e => isSameMonth(e.date, date));
+        bucketEvents = monthEvents.length;
         bucketEventCodes = Array.from(new Set(monthEvents.map(e => e.eventType.code)));
     }
 
-    if (bucketConsump > 0) {
-        totalConsumptionInPeriod += bucketConsump;
-        bucketsWithDataCount++;
-    }
-
     return {
-      name: aggregation === "DAY" ? format(bucketDate, "EEE dd") :
-            aggregation === "WEEK" ? `W${format(bucketDate, "ww")}` :
-            format(bucketDate, "MMM"),
-      fullDate: format(bucketDate, "yyyy-MM-dd"),
+      name: granularity === "day" ? format(date, "EEE dd") : format(date, "MMM"),
+      fullDate: format(date, "yyyy-MM-dd"),
       consumption: bucketConsump,
-      events: bucketEventCount,
-      eventCodes: bucketEventCodes.join(', ')
+      events: bucketEvents,
+      eventCodes: bucketEventCodes.join(', ') // For labeling
     };
   });
 
-  // Calculate Reference Average (Flat line)
-  const referenceAverage = bucketsWithDataCount > 0
-    ? totalConsumptionInPeriod / bucketsWithDataCount
-    : 0;
-
-  // Event Summary Badge Data
-  const ieCount = events.filter(e => e.eventType.type === 'INCREASE').length;
-  const deCount = events.filter(e => e.eventType.type === 'DECREASE').length;
-
   return {
-    chartData,
-    referenceAverage: parseFloat(referenceAverage.toFixed(2)),
-    eventSummary: { ie: ieCount, de: deCount },
-    eventTypes: [] // To be filled if needed, currently not used in new badge logic
+      chartData,
+      eventTypes: eventTypesUsed
   };
 }
 
-/**
- * Specialized Report Data
- */
-export async function getReportData(
-    resource: string,
-    period: "WEEK" | "MONTH" | "YEAR" | "CUSTOM",
-    targetDate: Date,
-    customStart?: Date,
-    customEnd?: Date,
-    aggregation: "DAY" | "WEEK" | "MONTH" = "DAY"
-) {
-    const charts = await getChartData(resource, period, targetDate, customStart, customEnd, aggregation);
-
-    // For the Consumption Log (Raw entries)
+export async function getReportData(resource: string, period: "WEEK" | "MONTH" | "YEAR", targetDate: Date) {
     let startDate: Date;
     let endDate: Date;
-    if (period === "CUSTOM") {
-        startDate = startOfDay(customStart!);
-        endDate = endOfDay(customEnd!);
-    } else if (period === "WEEK") {
+
+    if (period === "WEEK") {
         startDate = startOfWeek(targetDate, { weekStartsOn: 1 });
         endDate = endOfWeek(targetDate, { weekStartsOn: 1 });
     } else if (period === "MONTH") {
@@ -211,7 +162,23 @@ export async function getReportData(
         orderBy: { date: 'asc' }
     });
 
-    // Event Log (Detailed occurrences)
+    const total = readings.reduce((sum, r) => sum + r.consumption, 0);
+    const avg = readings.length > 0 ? total / readings.length : 0;
+
+    let peakDay = { date: "N/A", value: 0 };
+    if (readings.length > 0) {
+        const peak = readings.reduce((maxR, r) => r.consumption > maxR.consumption ? r : maxR, readings[0]);
+        peakDay = { date: format(peak.date, "dd/MM/yyyy"), value: peak.consumption };
+    }
+
+    const events = await prisma.dailyEvent.findMany({
+        where: {
+            date: { gte: startDate, lte: endDate },
+            eventType: { category: { in: [resource, "BOTH"] } }
+        },
+        include: { eventType: true }
+    });
+
     const eventStats = await prisma.eventType.findMany({
         where: {
             dailyEvents: {
@@ -221,20 +188,17 @@ export async function getReportData(
                 }
             }
         },
-        include: {
-            _count: {
-                select: {
-                    dailyEvents: {
-                        where: { date: { gte: startDate, lte: endDate } }
-                    }
-                }
-            }
-        }
+        include: { _count: { select: { dailyEvents: { where: { date: { gte: startDate, lte: endDate } } } } } }
     });
 
     return {
-        ...charts,
         readings,
+        summary: {
+            total: total.toFixed(2),
+            average: avg.toFixed(2),
+            peak: peakDay,
+            eventCount: events.length
+        },
         eventTable: eventStats.map(e => ({
             code: e.code,
             description: e.description,
@@ -244,8 +208,7 @@ export async function getReportData(
         periodInfo: {
             start: startDate,
             end: endDate,
-            label: period === "CUSTOM" ? `${format(startDate, 'dd MMM')} - ${format(endDate, 'dd MMM yyyy')}` :
-                   period === "WEEK" ? `Week of ${format(startDate, 'dd MMM')}` :
+            label: period === "WEEK" ? `Week of ${format(startDate, 'dd MMM')}` :
                    period === "MONTH" ? format(startDate, 'MMMM yyyy') :
                    format(startDate, 'yyyy')
         }

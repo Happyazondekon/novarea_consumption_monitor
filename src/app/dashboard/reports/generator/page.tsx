@@ -6,356 +6,431 @@ import {
   FileText, Calendar, Zap, Droplets,
   ChevronRight, ArrowLeft, Loader2, Save, Download,
   Settings2, Activity, TrendingUp, BarChart3, Search,
-  Eye, FileSpreadsheet, CheckCircle2, X
+  Eye, FileSpreadsheet, CheckCircle2, X, Plus, ClipboardList,
+  Type, MessageSquare, User, TrendingDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Swal from 'sweetalert2';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, LabelList
+  Tooltip, ResponsiveContainer, LabelList, ReferenceLine
 } from 'recharts';
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
+import { INDUSTRIAL_COLORS } from "@/lib/constants/colors";
 
 export default function ReportGeneratorPage() {
+  const { data: session } = useSession();
+  const adminName = (session?.user as any)?.name || "Administrator";
   const { resolvedTheme } = useTheme();
-  const [period, setPeriod] = useState<"WEEK" | "MONTH" | "YEAR">("WEEK");
-  const [resource, setResource] = useState<"POWER" | "WATER" | "BOTH">("POWER");
-  const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const [powerPreview, setPowerPreview] = useState<any>(null);
-  const [waterPreview, setWaterPreview] = useState<any>(null);
+  // Scope & Period State
+  const [resource, setResource] = useState<"POWER" | "WATER">("POWER");
+  const [period, setPeriod] = useState<"WEEK" | "MONTH" | "YEAR" | "CUSTOM">("WEEK");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
+  const [aggregation, setAggregation] = useState<"DAY" | "WEEK" | "MONTH">("DAY");
+
+  // Sections Builder State
+  const [includeChart, setIncludeChart] = useState(true);
+  const [includeBadge, setIncludeBadge] = useState(false);
+  const [includeConsLog, setIncludeConsLog] = useState(false);
+  const [includeEventLog, setIncludeEventLog] = useState(false);
+
+  // Custom Metadata
+  const [customTitle, setCustomTitle] = useState("");
+  const [customNote, setCustomNote] = useState("");
+
+  const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
 
-  const powerChartRef = useRef<HTMLDivElement>(null);
-  const waterChartRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
 
-  // High-contrast theme colors for generator preview
   const isDark = resolvedTheme === 'dark';
-  const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.2)";
-  const axisColor = isDark ? "#a1a1aa" : "#18181b";
-  const tooltipBg = isDark ? "rgba(24, 24, 27, 0.95)" : "rgba(255, 255, 255, 1)";
-  const tooltipBorder = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)";
+  const gridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
+  const axisColor = isDark ? "#71717a" : "#a1a1aa";
 
-  const fetchPreviews = async () => {
+  // Aggregation Logic
+  const getAllowedAggregations = () => {
+    let days = 0;
+    if (period === "WEEK") days = 7;
+    else if (period === "MONTH") days = 31;
+    else if (period === "YEAR") days = 365;
+    else if (customStart && customEnd) {
+        days = differenceInDays(new Date(customEnd), new Date(customStart)) + 1;
+    }
+    if (days <= 7) return ["DAY"];
+    if (days <= 31) return ["DAY", "WEEK"];
+    return ["MONTH", "WEEK"];
+  };
+
+  const allowedAggs = getAllowedAggregations();
+
+  useEffect(() => {
+    if (!allowedAggs.includes(aggregation)) setAggregation(allowedAggs[0] as any);
+  }, [period, customStart, customEnd]);
+
+  const fetchData = async () => {
+    if (period === "CUSTOM" && (!customStart || !customEnd)) return;
     setLoading(true);
     try {
-        if (resource === "POWER" || resource === "BOTH") {
-            const res = await fetch(`/api/dashboard/stats?resource=POWER&period=${period}&date=${targetDate}`);
-            if (res.ok) setPowerPreview(await res.json());
-        } else {
-            setPowerPreview(null);
-        }
-        if (resource === "WATER" || resource === "BOTH") {
-            const res = await fetch(`/api/dashboard/stats?resource=WATER&period=${period}&date=${targetDate}`);
-            if (res.ok) setWaterPreview(await res.json());
-        } else {
-            setWaterPreview(null);
-        }
+      let url = `/api/reports/data?resource=${resource}&period=${period}&date=${targetDate}&aggregation=${aggregation}`;
+      if (period === "CUSTOM") url += `&customStart=${customStart}&customEnd=${customEnd}`;
+      const res = await fetch(url);
+      if (res.ok) setReportData(await res.json());
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPreviews();
-  }, [period, resource, targetDate]);
+    fetchData();
+  }, [resource, period, targetDate, aggregation, customStart, customEnd]);
 
-  const generatePDF = async () => {
-    setExporting("pdf");
+  const validateSelection = () => (includeChart || includeBadge || includeConsLog || includeEventLog);
+
+  const handleExport = async (type: "pdf" | "excel") => {
+    if (!validateSelection()) return;
+    setExporting(type);
+
     try {
-        const doc = new jsPDF('p', 'mm', 'a4');
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
-        let currentY = 25;
+        const title = customTitle || `Industrial Consumption Report - ${resource}`;
+        const timestamp = format(new Date(), 'dd/MM/yyyy HH:mm');
 
-        // HEADER
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(31, 41, 55);
-        doc.text("Integrated Consumption Monitoring Report", margin, currentY);
+        if (type === 'pdf') {
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 15;
+            let currentY = 20;
 
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(107, 114, 128);
-        currentY += 8;
-        doc.text(`Novarea Textiles Benin • Period: ${period} • Date: ${format(new Date(targetDate), 'PPP')}`, margin, currentY);
+            // 1. COVER / HEADER (Ink Efficient Gray)
+            doc.setFillColor(243, 244, 246); // Light Gray Header
+            doc.rect(0, 0, pageWidth, 45, 'F');
 
-        currentY += 10;
-        doc.setDrawColor(229, 231, 235);
-        doc.line(margin, currentY, pageWidth - margin, currentY);
-        currentY += 15;
+            doc.setFontSize(22);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(31, 41, 55); // Dark Gray text
+            doc.text("NOVAREA TEXTILES BENIN", margin, 25);
 
-        const processResource = async (data: any, ref: any, title: string, unit: string) => {
-            if (!data) return;
+            doc.setFontSize(11);
+            doc.setTextColor(107, 114, 128); // Muted gray subheader
+            doc.text(title.toUpperCase(), margin, 35);
 
-            if (currentY > 200) {
-                doc.addPage();
-                currentY = 20;
+            currentY = 60;
+            doc.setFontSize(10);
+            doc.setTextColor(75, 85, 99);
+            doc.text(`Generated by: ${adminName}`, margin, currentY);
+            doc.text(`Date: ${timestamp}`, pageWidth - margin - 50, currentY);
+            currentY += 10;
+
+            if (customNote) {
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "italic");
+                doc.text("Administrator Note:", margin, currentY);
+                currentY += 5;
+                const splitNote = doc.splitTextToSize(customNote, pageWidth - (margin * 2));
+                doc.text(splitNote, margin, currentY);
+                currentY += (splitNote.length * 5) + 10;
             }
 
-            doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(31, 41, 55);
-            doc.text(title, margin, currentY);
-            currentY += 10;
+            doc.setDrawColor(229, 231, 235);
+            doc.line(margin, currentY, pageWidth - margin, currentY);
+            currentY += 15;
 
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "normal");
-            doc.text(`Total Period: ${data.powerToday || data.waterToday} ${unit}`, margin, currentY);
-            doc.text(`Daily Avg: ${data.dailyAverage} ${unit}`, margin + 60, currentY);
-            doc.text(`Logged Events: ${data.eventsToday}`, margin + 120, currentY);
-            currentY += 10;
-
-            // CAPTURE CHART
-            if (ref.current) {
-                const canvas = await html2canvas(ref.current, { scale: 2 });
-                const imgData = canvas.toDataURL("image/png");
+            // 2. CHART SECTION
+            if (includeChart && chartRef.current) {
+                const canvas = await html2canvas(chartRef.current, { scale: 2, backgroundColor: '#ffffff' });
+                const imgData = canvas.toDataURL('image/png');
                 const imgWidth = pageWidth - (margin * 2);
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                doc.setFontSize(14);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(31, 41, 55);
+                doc.text("Consumption Trends Analysis", margin, currentY);
+                currentY += 10;
 
                 doc.addImage(imgData, 'PNG', margin, currentY, imgWidth, imgHeight);
                 currentY += imgHeight + 15;
             }
 
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            doc.text("Consumption Log", margin, currentY);
-            currentY += 5;
+            // 3. BADGE SECTION
+            if (includeBadge) {
+                doc.setFontSize(12);
+                doc.text(`Summary: ${reportData.eventSummary.ie} Increase Events | ${reportData.eventSummary.de} Decrease Events`, margin, currentY);
+                currentY += 15;
+            }
 
-            const reportDataRes = await fetch(`/api/reports/data?resource=${title.includes('Electricity') ? 'POWER' : 'WATER'}&period=${period}&date=${targetDate}`);
-            const reportData = await reportDataRes.json();
-
-            autoTable(doc, {
-                startY: currentY,
-                head: [['Date', 'Previous Reading', 'Current Reading', 'Consumed']],
-                body: reportData.readings.map((r: any) => [
-                    format(new Date(r.date), 'dd/MM/yyyy HH:mm'),
-                    r.previousValue.toFixed(2),
-                    r.currentValue.toFixed(2),
-                    r.consumption.toFixed(2)
-                ]),
-                theme: 'striped',
-                headStyles: {
-                  fillColor: [229, 231, 235], // LIGHT GRAY for ink economy
-                  textColor: [31, 41, 55],    // Dark text
-                  fontStyle: 'bold'
-                },
-                styles: { fontSize: 8, cellPadding: 3 },
-                margin: { left: margin, right: margin }
-            });
-
-            if (reportData.eventTable.length > 0) {
-                doc.addPage();
-                currentY = 20;
-                doc.setFontSize(11);
-                doc.setFont("helvetica", "bold");
-                doc.text("Operational Anomalies & Context", margin, currentY);
+            // 4. CONSUMPTION LOG
+            if (includeConsLog) {
+                if (currentY > 240) { doc.addPage(); currentY = 20; }
+                doc.setFontSize(14);
+                doc.text("Consumption Log (Raw Entries)", margin, currentY);
+                currentY += 8;
 
                 autoTable(doc, {
-                    startY: currentY + 5,
-                    head: [['Code', 'Description', 'Direction', 'Freq']],
+                    startY: currentY,
+                    head: [['Date', 'Prev Reading', 'Curr Reading', `Consumed (${resource === 'POWER' ? 'kWh' : 'm³'})`]],
+                    body: reportData.readings.map((r: any) => [
+                        format(new Date(r.date), 'dd/MM/yyyy HH:mm'),
+                        r.previousValue.toFixed(2),
+                        r.currentValue.toFixed(2),
+                        r.consumption.toFixed(2)
+                    ]),
+                    theme: 'striped',
+                    headStyles: { fillColor: [229, 231, 235], textColor: [31, 41, 55], fontStyle: 'bold' },
+                    styles: { fontSize: 8 }
+                });
+                currentY = (doc as any).lastAutoTable.finalY + 15;
+            }
+
+            // 5. EVENT LOG
+            if (includeEventLog) {
+                if (currentY > 240) { doc.addPage(); currentY = 20; }
+                doc.setFontSize(14);
+                doc.text("Operational Events Dictionary", margin, currentY);
+                currentY += 8;
+
+                autoTable(doc, {
+                    startY: currentY,
+                    head: [['Code', 'Description', 'Impact', 'Freq']],
                     body: reportData.eventTable.map((e: any) => [e.code, e.description, e.type, e.count]),
                     theme: 'striped',
-                    headStyles: {
-                      fillColor: [229, 231, 235], // LIGHT GRAY for ink economy
-                      textColor: [31, 41, 55],    // Dark text
-                      fontStyle: 'bold'
-                    },
-                    styles: { fontSize: 8 },
-                    margin: { left: margin, right: margin }
-                });
-
-                const finalY = (doc as any).lastAutoTable.finalY;
-                doc.setFontSize(7);
-                doc.setTextColor(150, 150, 150);
-                doc.text("Event Definitions Reference:", margin, finalY + 10);
-                let noteY = finalY + 15;
-                reportData.eventTable.forEach((et: any) => {
-                    doc.text(`* ${et.code}: ${et.description}`, margin, noteY);
-                    noteY += 4;
+                    headStyles: { fillColor: [229, 231, 235], textColor: [31, 41, 55], fontStyle: 'bold' },
+                    styles: { fontSize: 8 }
                 });
             }
 
-            currentY = 20;
-        };
+            // Footer on all pages
+            const totalPages = (doc as any).internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text(`Page ${i} of ${totalPages} | Generated by ${adminName} | Novarea Monitoring`, margin, 285);
+            }
 
-        if (resource === "POWER" || resource === "BOTH") {
-            await processResource(powerPreview, powerChartRef, "Electricity Consumption Analytics", "kWh");
+            doc.save(`Novarea_Report_${format(new Date(), 'yyyyMMdd')}.pdf`);
+        } else {
+            // Excel Multi-Sheet
+            let url = `/api/reports/excel?resource=${resource}&period=${period}&date=${targetDate}&aggregation=${aggregation}&author=${encodeURIComponent(adminName)}&title=${encodeURIComponent(title)}&note=${encodeURIComponent(customNote)}&incCons=${includeConsLog}&incEvent=${includeEventLog}`;
+            if (period === 'CUSTOM') url += `&customStart=${customStart}&customEnd=${customEnd}`;
+
+            const res = await fetch(url);
+            if (res.ok) {
+                const blob = await res.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = downloadUrl;
+                a.download = `Novarea_${resource}_Report.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
         }
-
-        if (resource === "WATER" || resource === "BOTH") {
-            await processResource(waterPreview, waterChartRef, "Water Flow Monitoring", "m³");
-        }
-
-        doc.save(`Novarea_Report_${format(new Date(), 'yyyyMMdd')}.pdf`);
-        Swal.fire({ title: 'Success', text: 'PDF Generated', icon: 'success', timer: 1500 });
+        Swal.fire({ title: 'Export Complete', icon: 'success', timer: 1500 });
     } catch (err) {
         console.error(err);
-        Swal.fire('Error', 'Failed to generate PDF', 'error');
+        Swal.fire('Export Error', 'Strategic synchronization failed.', 'error');
     } finally {
         setExporting(null);
     }
   };
 
-  const handleExport = async (formatType: "pdf" | "excel") => {
-    if (formatType === "pdf") {
-        await generatePDF();
-        return;
-    }
-
-    setExporting("excel");
-    try {
-      const url = `/api/reports/excel?resource=${resource}&period=${period}&date=${targetDate}`;
-      const res = await fetch(url);
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = downloadUrl;
-        a.download = `Novarea_${resource}_Data_${new Date().toISOString().split('T')[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        Swal.fire({ title: 'Success', text: 'Excel Exported', icon: 'success', timer: 1500, showConfirmButton: false });
-      }
-    } catch (err) {
-      Swal.fire('Error', 'Failed to generate Excel', 'error');
-    } finally {
-      setExporting(null);
-    }
-  };
-
   return (
-    <div className="w-full space-y-6 animate-fade-in py-6 px-4 lg:px-6 text-left">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-6 px-2">
+    <div className="w-full space-y-6 animate-fade-in py-6 px-4 lg:px-6 text-left selection:bg-blue-500/30">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-200 dark:border-zinc-800 pb-8 px-2">
         <div>
-          <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] mb-1">Reports Hub</p>
-          <h1 className="text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Generation Center</h1>
-          <p className="text-zinc-500 font-bold uppercase text-[9px] tracking-widest mt-2">Professional Document Builder</p>
+          <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] mb-2">Intelligence Unit</p>
+          <h1 className="text-3xl lg:text-4xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Generation Center</h1>
+          <p className="text-zinc-500 font-bold uppercase text-[9px] tracking-widest mt-3 italic opacity-60">Strategic Document Architecture</p>
         </div>
-        <Link href="/dashboard/reports" className="btn-outline px-5 py-2 text-[9px] font-black uppercase">
-          <ArrowLeft size={14} className="mr-2"/> Back to Audit
+        <Link href="/dashboard/reports" className="btn-outline px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all">
+          <ArrowLeft size={16} className="mr-2"/> Back to Audit Hub
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-3 space-y-6">
-            <Card className="p-6 space-y-8 bg-white dark:bg-zinc-900 border-none shadow-sm rounded-3xl">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20 lg:pb-0">
+
+        {/* SIDEBAR: CONFIGURATION */}
+        <div className="lg:col-span-4 space-y-6">
+            <Card className="apple-card p-6 md:p-8 space-y-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+
+                {/* 1. DATA SCOPE */}
                 <div className="space-y-6">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-2">
                         <Settings2 className="text-blue-600" size={16} />
-                        <h3 className="text-xs font-black uppercase tracking-widest">Setup</h3>
+                        <h3 className="text-xs font-black uppercase tracking-widest">1. Data Filters</h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <ResourceBtn active={resource === "POWER"} onClick={() => setResource("POWER")} label="Power" icon={Zap} color="blue" />
+                        <ResourceBtn active={resource === "WATER"} onClick={() => setResource("WATER")} label="Water" icon={Droplets} color="cyan" />
                     </div>
 
                     <div className="space-y-3">
-                        <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-1">Period</label>
-                        <div className="grid grid-cols-3 gap-1 bg-zinc-50 dark:bg-zinc-800/50 p-1 rounded-xl border border-zinc-100 dark:border-zinc-800">
-                            {["WEEK", "MONTH", "YEAR"].map(p => (
-                                <button
-                                    key={p}
-                                    onClick={() => setPeriod(p as any)}
-                                    className={cn(
-                                        "py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
-                                        period === p ? "bg-white dark:bg-zinc-700 text-blue-600 shadow-sm" : "text-zinc-400 hover:text-zinc-600"
-                                    )}
-                                >
-                                    {p}
-                                </button>
+                        <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-1">Time Horizon</label>
+                        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            {["WEEK", "MONTH", "YEAR", "CUSTOM"].map(p => (
+                                <button key={p} onClick={() => setPeriod(p as any)} className={cn("flex-1 py-2 rounded-lg text-[8px] font-black transition-all", period === p ? "bg-white dark:bg-zinc-700 text-blue-600 shadow-sm" : "text-zinc-400")}>{p}</button>
                             ))}
                         </div>
                     </div>
 
-                    <div className="space-y-3">
-                        <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-1">Scope</label>
-                        <div className="grid grid-cols-1 gap-2">
-                            <ResourceToggle label="Electricity" icon={Zap} active={resource === "POWER"} onClick={() => setResource("POWER")} color="text-blue-600" />
-                            <ResourceToggle label="Water" icon={Droplets} active={resource === "WATER"} onClick={() => setResource("WATER")} color="text-cyan-600" />
-                            <ResourceToggle label="Combined" icon={Activity} active={resource === "BOTH"} onClick={() => setResource("BOTH")} color="text-purple-600" />
+                    {period === "CUSTOM" && (
+                        <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-300">
+                            <div className="space-y-1">
+                                <span className="text-[7px] font-black text-zinc-400 uppercase ml-1">Start Date</span>
+                                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-black border-none outline-none focus:ring-2 focus:ring-blue-600/10" />
+                            </div>
+                            <div className="space-y-1">
+                                <span className="text-[7px] font-black text-zinc-400 uppercase ml-1">End Date</span>
+                                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-black border-none outline-none focus:ring-2 focus:ring-blue-600/10" />
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="space-y-3">
-                        <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-1">Date</label>
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
-                            <input
-                                type="date"
-                                value={targetDate}
-                                onChange={(e) => setTargetDate(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-blue-600/5 transition-all"
-                            />
+                        <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-1">Aggregation</label>
+                        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                            {allowedAggs.map(agg => (
+                                <button key={agg} onClick={() => setAggregation(agg as any)} className={cn("flex-1 py-2 rounded-lg text-[8px] font-black transition-all", aggregation === agg ? "bg-white dark:bg-zinc-700 text-blue-600 shadow-sm" : "text-zinc-400")}>{agg}</button>
+                            ))}
                         </div>
                     </div>
                 </div>
 
-                <div className="space-y-2 pt-6 border-t border-zinc-50 dark:border-zinc-800">
-                    <button
-                        disabled={!!exporting || loading}
-                        onClick={() => handleExport("pdf")}
-                        className="w-full btn-primary py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10 text-[10px] font-black uppercase tracking-widest"
-                    >
-                        {exporting === 'pdf' ? <Loader2 className="animate-spin" size={16}/> : <FileText size={16}/>}
-                        Export PDF
+                {/* 2. SECTION BUILDER */}
+                <div className="space-y-6 pt-8 border-t border-zinc-100 dark:border-zinc-800">
+                    <div className="flex items-center gap-2 mb-4">
+                        <ClipboardList className="text-blue-600" size={16} />
+                        <h3 className="text-xs font-black uppercase tracking-widest">2. Build Sections</h3>
+                    </div>
+
+                    <div className="space-y-3">
+                        <SectionToggle label="Consumption Trends (Chart)" active={includeChart} onChange={setIncludeChart} />
+                        <SectionToggle label="Event Summary (IE/DE)" active={includeBadge} onChange={setIncludeBadge} />
+                        <SectionToggle label="Consumption Log (Raw Data)" active={includeConsLog} onChange={setIncludeConsLog} />
+                        <SectionToggle label="Detailed Event Log" active={includeEventLog} onChange={setIncludeEventLog} />
+                    </div>
+                </div>
+
+                {/* 3. METADATA */}
+                <div className="space-y-4 pt-8 border-t border-zinc-100 dark:border-zinc-800">
+                    <div className="space-y-1">
+                        <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Type size={10}/> Report Title</label>
+                        <input value={customTitle} onChange={e => setCustomTitle(e.target.value)} placeholder="Default Title" className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-bold border-none outline-none" />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2"><MessageSquare size={10}/> Contextual Note</label>
+                        <textarea rows={3} value={customNote} onChange={e => setCustomNote(e.target.value)} placeholder="Add professional commentary..." className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-bold border-none outline-none resize-none" />
+                    </div>
+                </div>
+
+                {/* EXPORT ACTIONS */}
+                <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
+                    {!validateSelection() && <p className="text-[8px] font-black text-red-500 uppercase tracking-widest text-center mb-2">Select at least one section</p>}
+                    <button disabled={!validateSelection() || exporting === 'pdf' || loading} onClick={() => handleExport("pdf")} className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10 text-xs font-black">
+                        {exporting === 'pdf' ? <Loader2 className="animate-spin" size={18}/> : <FileText size={18}/>}
+                        EXPORT PDF
                     </button>
-                    <button
-                        disabled={!!exporting || loading}
-                        onClick={() => handleExport("excel")}
-                        className="w-full bg-emerald-600 text-white hover:bg-emerald-700 py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all text-[10px] font-black uppercase tracking-widest"
-                    >
-                        {exporting === 'excel' ? <Loader2 className="animate-spin" size={16}/> : <FileSpreadsheet size={16}/>}
-                        Export Excel
+                    <button disabled={!validateSelection() || exporting === 'excel' || loading} onClick={() => handleExport("excel")} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl flex items-center justify-center gap-3 transition-all text-xs font-black shadow-lg shadow-emerald-500/10">
+                        {exporting === 'excel' ? <Loader2 className="animate-spin" size={18}/> : <FileSpreadsheet size={18}/>}
+                        EXPORT EXCEL
                     </button>
+
+                    <div className="pt-4 flex items-center justify-center gap-3 opacity-30">
+                        <User size={12} className="text-zinc-400" />
+                        <span className="text-[7px] font-black uppercase text-zinc-400">Authorized: {adminName}</span>
+                    </div>
                 </div>
             </Card>
         </div>
 
-        <div className="lg:col-span-9 space-y-6">
-            <Card className="apple-card p-8 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-none shadow-sm min-h-[500px] flex flex-col space-y-8">
+        {/* PREVIEW PANEL */}
+        <div className="lg:col-span-8 space-y-6">
+            <Card className="apple-card p-6 md:p-12 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-none shadow-sm min-h-[600px] flex flex-col relative overflow-hidden text-left">
                 {loading ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 gap-4">
-                        <Loader2 className="animate-spin text-blue-600" size={48} />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Querying Records...</p>
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4 text-zinc-400">
+                        <Loader2 className="animate-spin text-blue-600" size={56} />
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em]">Building dynamic preview...</p>
+                    </div>
+                ) : reportData ? (
+                    <div className="space-y-12">
+                        {/* 1. DOCUMENT HEADER PREVIEW */}
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 border-b border-zinc-200 dark:border-zinc-800 pb-10">
+                            <div className="space-y-4">
+                                <div className="w-16 h-1 bg-blue-600" />
+                                <h3 className="text-2xl font-black uppercase tracking-tighter leading-none">{customTitle || "Industrial Monitoring Report"}</h3>
+                                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{resource} ANALYSIS • {reportData.periodInfo.label}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[8px] font-black text-zinc-400 uppercase">Report ID: {Math.random().toString(36).substring(7).toUpperCase()}</p>
+                                <p className="text-[8px] font-bold text-zinc-300 uppercase mt-1">Author: {adminName}</p>
+                            </div>
+                        </div>
+
+                        {/* 2. CHART PREVIEW */}
+                        {includeChart && (
+                            <div className="space-y-8 animate-in fade-in duration-700">
+                                <div className="flex items-center gap-3">
+                                    <BarChart3 size={18} className="text-blue-600" />
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400">Trends Visualization</h4>
+                                </div>
+                                <div ref={chartRef} className="bg-zinc-50 dark:bg-zinc-800/30 p-6 rounded-[2rem] border border-zinc-100 dark:border-zinc-800">
+                                    <ResponsiveContainer width="100%" height={350}>
+                                        <ComposedChart data={reportData.chartData} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }} dy={12} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }} />
+                                            <Tooltip content={<CustomTooltip theme={{ isDark }} />} />
+                                            <ReferenceLine y={reportData.referenceAverage} stroke={INDUSTRIAL_COLORS.REFERENCE_LINE} strokeDasharray="5 5" strokeWidth={2} label={{ position: 'right', value: `AVG: ${reportData.referenceAverage}`, fill: INDUSTRIAL_COLORS.REFERENCE_LINE, fontSize: 8, fontWeight: 900 }} />
+                                            <Bar dataKey="consumption" fill={resource === 'POWER' ? INDUSTRIAL_COLORS.POWER : INDUSTRIAL_COLORS.WATER} radius={[4, 4, 0, 0]} barSize={aggregation === 'MONTH' ? 40 : 15} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. BADGE PREVIEW */}
+                        {includeBadge && (
+                            <div className="flex items-center gap-6 animate-in slide-in-from-left-4 duration-500">
+                                <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/10 px-4 py-2 rounded-xl border border-red-100 dark:border-red-900/20">
+                                    <TrendingUp size={16} className="text-red-500" />
+                                    <span className="text-base font-black text-red-600">{reportData.eventSummary.ie} IE</span>
+                                </div>
+                                <div className="flex items-center gap-3 bg-green-50 dark:bg-green-900/10 px-4 py-2 rounded-xl border border-green-100 dark:border-green-900/20">
+                                    <TrendingDown size={16} className="text-green-500" />
+                                    <span className="text-base font-black text-green-600">{reportData.eventSummary.de} DE</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 4. LOGS PREVIEWS */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[9px] opacity-40">
+                             {includeConsLog && <div className="p-4 border-2 border-dashed border-zinc-200 rounded-2xl text-center font-black uppercase">Consumption Log Placeholder</div>}
+                             {includeEventLog && <div className="p-4 border-2 border-dashed border-zinc-200 rounded-2xl text-center font-black uppercase">Detailed Event Log Placeholder</div>}
+                        </div>
+
+                        {/* DOCUMENT FOOTER */}
+                        <div className="pt-10 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center opacity-40">
+                             <p className="text-[8px] font-black uppercase tracking-[0.4em]">Novarea Textiles Benin • Operational Monitoring</p>
+                             <div className="w-2 h-2 rounded-full bg-green-500" />
+                        </div>
                     </div>
                 ) : (
-                    <>
-                        {(resource === 'POWER' || resource === 'BOTH') && powerPreview && (
-                            <div ref={powerChartRef}>
-                                <PreviewSection
-                                  data={powerPreview}
-                                  title="Electricity Analytics"
-                                  color="#3b82f6"
-                                  unit="kWh"
-                                  period={period}
-                                  theme={{ gridColor, axisColor, tooltipBg, tooltipBorder, isDark }}
-                                />
-                            </div>
-                        )}
-                        {(resource === 'WATER' || resource === 'BOTH') && waterPreview && (
-                            <div ref={waterChartRef}>
-                                <PreviewSection
-                                  data={waterPreview}
-                                  title="Water Flow Analytics"
-                                  color="#06b6d4"
-                                  unit="m³"
-                                  period={period}
-                                  theme={{ gridColor, axisColor, tooltipBg, tooltipBorder, isDark }}
-                                />
-                            </div>
-                        )}
-                        {(!powerPreview && !waterPreview) && (
-                            <div className="flex-1 flex flex-col items-center justify-center space-y-4 opacity-20 py-20">
-                                <Search size={64} />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Adjust filters to see preview</p>
-                            </div>
-                        )}
-                    </>
+                    <div className="flex-1 flex flex-col items-center justify-center opacity-20 space-y-6">
+                        <ClipboardList size={80} />
+                        <p className="text-xs font-black uppercase tracking-[0.4em]">Ready for Generation</p>
+                    </div>
                 )}
             </Card>
         </div>
@@ -364,66 +439,23 @@ export default function ReportGeneratorPage() {
   );
 }
 
-function PreviewSection({ data, title, color, unit, period, theme }: any) {
+function ResourceBtn({ active, onClick, label, icon: Icon, color }: any) {
+    const activeStyles: any = {
+        blue: "bg-blue-600 text-white shadow-lg shadow-blue-500/20",
+        cyan: "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
+    };
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 bg-white dark:bg-zinc-900 p-4 rounded-3xl">
-            <div className="flex items-center justify-between border-b border-zinc-50 dark:border-zinc-800 pb-4 px-2">
-                <h3 className="text-base font-black uppercase tracking-tighter" style={{ color: theme.isDark ? '#fff' : '#18181b' }}>{title}</h3>
-                <div className="flex gap-8">
-                    <StatMini label="Sum" value={data.powerToday || data.waterToday} unit={unit} theme={theme} />
-                    <StatMini label="Avg" value={data.dailyAverage} unit={unit} theme={theme} />
-                    <StatMini label="Notes" value={data.eventsToday} unit="LOG" theme={theme} />
-                </div>
-            </div>
-
-            <div className="h-[250px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data.chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.gridColor} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: theme.axisColor }} dy={10} />
-                        <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: theme.axisColor }} />
-                        <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: '#ef4444' }} />
-                        <Tooltip content={<CustomTooltip theme={theme} />} />
-                        <Bar yAxisId="left" dataKey="consumption" fill={color} radius={[4, 4, 0, 0]} barSize={period === "YEAR" ? 30 : 10} />
-                        <Line yAxisId="right" type="monotone" dataKey="events" stroke="#ef4444" strokeWidth={2} dot={{ r: 3, fill: '#ef4444' }}>
-                            <LabelList dataKey="eventCodes" position="top" style={{ fontSize: '9px', fontWeight: 900, fill: '#ef4444', fontStyle: 'italic' }} />
-                        </Line>
-                    </ComposedChart>
-                </ResponsiveContainer>
-            </div>
-        </div>
+        <button onClick={onClick} className={cn("flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all", active ? activeStyles[color] : "bg-zinc-50 dark:bg-zinc-800 text-zinc-400 hover:text-zinc-600")}>
+            <Icon size={14}/> {label}
+        </button>
     );
 }
 
-function StatMini({ label, value, unit, theme }: any) {
+function SectionToggle({ label, active, onChange }: any) {
     return (
-        <div className="text-right">
-            <p className="text-[7px] font-black text-zinc-400 uppercase tracking-widest">{label}</p>
-            <p className="text-sm font-black leading-none mt-0.5" style={{ color: theme.isDark ? '#fff' : '#18181b' }}>
-                {value} <span className="text-[8px] opacity-30">{unit}</span>
-            </p>
-        </div>
-    );
-}
-
-function ResourceToggle({ label, icon: Icon, active, onClick, color }: any) {
-    return (
-        <button
-            onClick={onClick}
-            className={cn(
-                "w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all text-left group",
-                active
-                    ? "bg-blue-600 border-blue-600 text-white shadow-md"
-                    : "bg-white dark:bg-zinc-950 border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50"
-            )}
-        >
-            <div className="flex items-center gap-3">
-                <div className={cn("p-1.5 rounded-lg bg-white dark:bg-zinc-800 shadow-sm", active ? "text-blue-600" : color)}>
-                    <Icon size={14} />
-                </div>
-                <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
-            </div>
-            {active && <CheckCircle2 size={16} />}
+        <button onClick={() => onChange(!active)} className={cn("w-full flex items-center justify-between p-3.5 rounded-xl border transition-all", active ? "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 text-blue-600" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-400 opacity-60")}>
+            <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+            <div className={cn("w-4 h-4 rounded border-2 flex items-center justify-center", active ? "bg-blue-600 border-blue-600 text-white" : "border-zinc-200")}>{active && <CheckCircle2 size={10} />}</div>
         </button>
     );
 }
@@ -431,20 +463,11 @@ function ResourceToggle({ label, icon: Icon, active, onClick, color }: any) {
 const CustomTooltip = ({ active, payload, label, theme }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div
-          className="backdrop-blur-md border p-3 rounded-xl shadow-2xl transition-colors duration-300"
-          style={{ backgroundColor: theme.bg, borderColor: theme.border }}
-        >
-          <p className="text-[8px] font-black uppercase tracking-widest mb-2" style={{ color: theme.isDark ? '#fff' : '#18181b' }}>{label}</p>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-4">
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Usage</span>
-                <span className="text-xs font-black" style={{ color: theme.isDark ? '#fff' : '#18181b' }}>{payload[0].value.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between gap-6 border-t border-zinc-100 dark:border-white/5 pt-1">
-                <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">Events</span>
-                <span className="text-xs font-black text-red-500">{payload[1].value}</span>
-            </div>
+        <div className={cn("backdrop-blur-xl border p-4 rounded-[1.5rem] shadow-2xl transition-all", theme.isDark ? "bg-zinc-900/90 border-white/10" : "bg-white/90 border-zinc-200")}>
+          <p className="text-[10px] font-black uppercase tracking-widest mb-2 text-zinc-400">{label}</p>
+          <div className="space-y-1 text-left">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase">Usage: </span>
+            <span className={cn("text-xs font-black", theme.isDark ? "text-white" : "text-zinc-900")}>{payload[0].value.toFixed(2)}</span>
           </div>
         </div>
       );
