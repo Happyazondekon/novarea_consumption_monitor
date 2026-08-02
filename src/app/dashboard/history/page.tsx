@@ -52,7 +52,7 @@ export default function HistoryPage() {
 
   if (selectedReading) {
     return (
-        <div className="w-full space-y-6 animate-fade-in py-4 lg:py-8 px-4 lg:px-6 text-left relative">
+        <div id="history-details" className="w-full space-y-6 animate-fade-in py-4 lg:py-8 px-4 lg:px-6 text-left relative selection:bg-blue-500/30">
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Submission Details</h2>
@@ -65,7 +65,7 @@ export default function HistoryPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
                 <div className="space-y-6">
-                    <Card className="p-8 space-y-8 bg-white dark:bg-zinc-900 rounded-[2rem] border-zinc-200 dark:border-zinc-800 shadow-sm">
+                    <Card id="reading-summary-card" className="p-8 space-y-8 bg-white dark:bg-zinc-900 rounded-[2rem] border-zinc-200 dark:border-zinc-800 shadow-sm">
                         <div className="flex flex-col items-center text-center space-y-4">
                             <div className={cn(
                                 "w-16 h-16 rounded-2xl flex items-center justify-center",
@@ -95,21 +95,9 @@ export default function HistoryPage() {
                             </div>
                         </div>
                     </Card>
-
-                    <Card className="p-6 bg-zinc-900 text-white rounded-[2rem] border-none shadow-lg">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                                <CheckCircle2 size={20} className="text-blue-400" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest">Log Integrity</p>
-                                <p className="text-[9px] text-zinc-500 font-medium">This record is securely stored and timestamped.</p>
-                            </div>
-                        </div>
-                    </Card>
                 </div>
 
-                <Card className="p-6 bg-white dark:bg-zinc-900 rounded-[2.5rem] border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center group overflow-hidden relative min-h-[300px]">
+                <Card id="visual-evidence-card" className="p-6 bg-white dark:bg-zinc-900 rounded-[2.5rem] border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center group overflow-hidden relative min-h-[300px]">
                     {selectedReading.photoUrl ? (
                         <>
                             <div className="flex items-center gap-2 mb-6 self-start px-2">
@@ -144,14 +132,14 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6 px-2">
+    <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left selection:bg-blue-500/30">
+      <div id="history-header" className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6 px-2">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-600 mb-0.5">Archive Control</p>
           <h1 className="text-2xl lg:text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Capture History</h1>
           <p className="text-zinc-500 font-bold uppercase text-[9px] tracking-widest mt-1">Review your submitted readings</p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div id="history-date-filter" className="flex items-center gap-3 w-full sm:w-auto">
             <div className="flex flex-1 items-center gap-3 bg-white dark:bg-zinc-900 px-4 py-2 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
                 <Calendar className="text-blue-600" size={16} />
                 <input
@@ -165,7 +153,7 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-zinc-200 dark:border-zinc-800 px-2">
+      <div id="history-type-filters" className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-zinc-200 dark:border-zinc-800 px-2">
         {["ALL", "POWER", "WATER"].map((t) => (
             <button
                 key={t}
@@ -187,8 +175,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <>
-            {/* MOBILE-ONLY LIST VIEW (No Horizontal Scroll) */}
-            <div className="lg:hidden grid grid-cols-1 gap-3 px-2 pb-20">
+            <div id="history-list-mobile" className="lg:hidden grid grid-cols-1 gap-3 px-2 pb-20">
                 {filteredHistory.map(item => (
                     <div
                         key={item.id}
@@ -220,8 +207,7 @@ export default function HistoryPage() {
                 ))}
             </div>
 
-            {/* DESKTOP-ONLY TABLE VIEW */}
-            <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[2rem] overflow-hidden shadow-sm mx-2">
+            <div id="history-table-desktop" className="hidden lg:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[2rem] overflow-hidden shadow-sm mx-2">
                 <table className="w-full text-left border-collapse">
                     <thead>
                     <tr className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] bg-zinc-100 dark:bg-zinc-800/20">
@@ -238,7 +224,7 @@ export default function HistoryPage() {
                         <td className="px-8 py-4">
                             <div className="flex flex-col text-left">
                                 <span className="text-[11px] font-bold text-zinc-900 dark:text-white uppercase leading-none">{format(new Date(item.timestamp), 'dd MMM yyyy')}</span>
-                                <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest mt-1">{format(new Date(item.timestamp), 'HH:mm')} • {item.timeOfDay}</span>
+                                <span className="text-[8px] text-zinc-400 font-bold uppercase mt-1">{format(new Date(item.timestamp), 'HH:mm')} • {item.timeOfDay}</span>
                             </div>
                         </td>
                         <td className="px-8 py-4">

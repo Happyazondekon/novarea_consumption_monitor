@@ -75,7 +75,6 @@ export default function DashboardPage() {
     else if (customStart && customEnd) {
         days = differenceInDays(new Date(customEnd), new Date(customStart)) + 1;
     }
-
     if (days <= 7) return ["DAY"];
     if (days <= 31) return ["DAY", "WEEK"];
     return ["MONTH", "WEEK"];
@@ -127,19 +126,19 @@ export default function DashboardPage() {
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 border-b border-zinc-200 dark:border-zinc-800 pb-8 px-4 md:px-2">
         <div className="space-y-6">
           <div className="space-y-1">
-            <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] md:text-[10px]">Command Center</p>
+            <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] md:text-[10px] mb-2">Command Center</p>
             <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">
                Operational Insights
             </h1>
           </div>
 
           <div className="flex flex-wrap gap-4">
-              <div className="flex bg-zinc-100 dark:bg-zinc-800/50 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+              <div id="active-resource-toggle" className="flex bg-zinc-100 dark:bg-zinc-800/50 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800">
                 <ResourceBtn active={activeResource === "POWER"} onClick={() => setActiveResource("POWER")} label="Electricity" icon={Zap} color="blue" />
                 <ResourceBtn active={activeResource === "WATER"} onClick={() => setActiveResource("WATER")} label="Water" icon={Droplets} color="cyan" />
               </div>
 
-              <div className="flex bg-zinc-100 dark:bg-zinc-800/50 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+              <div id="period-shortcuts" className="flex bg-zinc-100 dark:bg-zinc-800/50 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800">
                 {["WEEK", "MONTH", "YEAR"].map(p => (
                     <button
                         key={p}
@@ -191,7 +190,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 px-4 md:px-2">
+      <div id="kpi-grid" className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 px-4 md:px-2">
         <KPICard title="Last Reading" value={stats?.lastReading || "0.00"} unit={activeResource === 'POWER' ? 'kWh' : 'm³'} sub="Current Index" icon={Hash} color={activeResource === 'POWER' ? 'blue' : 'cyan'} loading={loading} />
         <KPICard title={activeResource === 'POWER' ? 'Electricity Usage' : 'Water Usage'} value={stats?.usageToday || "0.00"} unit={activeResource === 'POWER' ? 'kWh' : 'm³'} sub="Total for Period" icon={activeResource === 'POWER' ? Zap : Droplets} color={activeResource === 'POWER' ? 'blue' : 'cyan'} loading={loading} />
         <KPICard title="Active Events" value={stats?.eventsToday || "0"} unit="Notes" sub="Operational Context" icon={Activity} color="purple" loading={loading} />
@@ -205,14 +204,14 @@ export default function DashboardPage() {
                     <div className={cn("w-1.5 h-6 rounded-full shadow-lg", activeResource === 'POWER' ? "bg-yellow-500 shadow-yellow-500/20" : "bg-blue-500 shadow-blue-500/20")} />
                     <h2 className="text-xl md:text-2xl font-black uppercase tracking-tighter">Consumption Trends</h2>
                 </div>
-                <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
+                <div id="aggregation-selector" className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
                     {allowedAggs.map(agg => (
                         <button key={agg} onClick={() => setActiveAggregation(agg as any)} className={cn("px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all", activeAggregation === agg ? "bg-white dark:bg-zinc-700 text-blue-600 shadow-sm" : "text-zinc-400 hover:text-zinc-600")}>BY {agg}</button>
                     ))}
                 </div>
             </div>
 
-            <Card className="apple-card p-6 md:p-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-none shadow-sm min-h-[500px] flex flex-col">
+            <Card id="trends-chart" className="apple-card p-6 md:p-10 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-none shadow-sm min-h-[500px] flex flex-col">
                 {loading ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 gap-4">
                         <Loader2 className="animate-spin text-blue-600" size={48} />
@@ -255,8 +254,8 @@ export default function DashboardPage() {
                                 </div>
                              </div>
                              <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/10 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/20">
-                                <Sparkles size={12} className="text-blue-500" />
-                                <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest">Interpolation Engine Active</span>
+                                <Sparkles size={12} className="text-blue-600" />
+                                <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest">Standard Protocol Active</span>
                              </div>
                         </div>
                     </>
@@ -305,9 +304,7 @@ const CustomTooltip = ({ active, payload, label, theme }: any) => {
           <div className="space-y-3 text-left">
             <div className="flex items-center justify-between gap-8">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Usage</span>
-                <span className={cn("text-sm font-black", theme.isDark ? "text-white" : "text-zinc-900")}>
-                    {payload[0].value.toFixed(2)}{data.source === 'INTERPOLATED' ? '*' : ''}
-                </span>
+                <span className={cn("text-sm font-black", theme.isDark ? "text-white" : "text-zinc-900")}>{payload[0].value.toFixed(2)}{data.source === 'INTERPOLATED' ? '*' : ''}</span>
             </div>
             {data.source === 'INTERPOLATED' && (
                 <div className="bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
@@ -333,6 +330,7 @@ function TechnicianDashboard({ isDark }: { isDark: boolean }) {
     const [readings, setReadings] = useState<any[]>([]);
     const [techStats, setTechStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+
     const fetchTechData = async () => {
       setLoading(true);
       try {
@@ -346,15 +344,15 @@ function TechnicianDashboard({ isDark }: { isDark: boolean }) {
       <div className="w-full space-y-6 md:space-y-10 animate-fade-in pb-20 md:pb-6 px-0 md:px-6 text-left">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-200 dark:border-zinc-800 pb-6 md:pb-10 px-4 md:px-2">
           <div><p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] md:text-[10px] mb-2">Operational Hub</p><h1 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Daily Deployment</h1><p className="text-zinc-500 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-2 md:mt-3">Technician Monitoring Access</p></div>
-          <Link href="/dashboard/new-reading" className="btn-primary w-full md:w-auto px-8 md:px-12 py-3 md:py-4 text-xs font-black shadow-xl shadow-blue-500/20"><Plus className="w-4 h-4 md:w-5 md:h-5" /> NEW READING</Link>
+          <Link id="new-reading-btn" href="/dashboard/new-reading" className="btn-primary w-full md:w-auto px-8 md:px-12 py-3 md:py-4 text-xs font-black shadow-xl shadow-blue-500/20"><Plus className="w-4 h-4 md:w-5 md:h-5" /> NEW READING</Link>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 px-4 md:px-2">
+        <div id="tech-kpis" className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 px-4 md:px-2">
           <KPICard title="Missions" value={techStats?.newInstructions || "0"} unit="Active" sub="Directives" icon={MessageSquare} color="blue" loading={loading} />
           <KPICard title="Verified" value={techStats?.validatedCount || "0"} unit="Logs" sub="Audited" icon={ShieldCheck} color="green" loading={loading} />
           <KPICard title="Pending" value={techStats?.pendingCount || "0"} unit="Review" sub="Waiting" icon={AlertCircle} color="purple" loading={loading} />
           <KPICard title="Total" value={techStats?.totalReadings || "0"} unit="Records" sub="Global" icon={ClipboardCheck} color="cyan" loading={loading} />
         </div>
-        <div className="space-y-6 px-4 md:px-2 pt-4">
+        <div id="recent-submissions" className="space-y-6 px-4 md:px-2 pt-4">
           <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-1.5 h-6 rounded-full bg-blue-600" /><h2 className="text-lg md:text-xl font-black uppercase tracking-tighter">Your Last Submissions</h2></div><Link href="/dashboard/history" className="text-[10px] font-black uppercase text-blue-600 hover:underline">History</Link></div>
           <div className="md:hidden grid grid-cols-1 gap-3">
               {readings.map((r) => (
@@ -382,6 +380,7 @@ function TechnicianDashboard({ isDark }: { isDark: boolean }) {
                 </tbody>
              </table>
           </div>
+          {readings.length === 0 && <div className="py-20 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl"><p className="text-[9px] font-black text-zinc-300 uppercase tracking-widest">No recent data entries</p></div>}
         </div>
       </div>
     );

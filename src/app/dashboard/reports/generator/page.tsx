@@ -239,7 +239,10 @@ export default function ReportGeneratorPage() {
   };
 
   const handleExport = async (type: "pdf" | "excel") => {
-    if (!validateSelection()) return;
+    if (!validateSelection()) {
+        Swal.fire('Action Required', 'Select at least one section to include in the report.', 'info');
+        return;
+    }
     if (type === 'pdf') {
         await generatePDF();
         return;
@@ -267,21 +270,43 @@ export default function ReportGeneratorPage() {
 
   return (
     <div className="w-full space-y-6 animate-fade-in py-6 px-4 lg:px-6 text-left selection:bg-blue-500/30">
+      {/* HEADER WITH EXPORT ACTIONS ON SAME LINE */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-200 dark:border-zinc-800 pb-8 px-2">
         <div>
           <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] mb-2">Intelligence Unit</p>
           <h1 className="text-3xl lg:text-4xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Generation Center</h1>
           <p className="text-zinc-500 font-bold uppercase text-[9px] tracking-widest mt-3 italic opacity-60">Strategic Document Architecture</p>
         </div>
-        <Link href="/dashboard/reports" className="btn-outline px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all">
-          <ArrowLeft size={16} className="mr-2"/> Back to Audit Hub
-        </Link>
+
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
+            {/* EXPORT BUTTONS MOVED HERE */}
+            <button
+                disabled={!validateSelection() || exporting === 'pdf' || loading}
+                onClick={() => handleExport("pdf")}
+                className="flex-1 md:flex-initial btn-primary px-6 py-3 rounded-xl flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10 text-[10px] font-black uppercase tracking-widest"
+            >
+                {exporting === 'pdf' ? <Loader2 className="animate-spin" size={16}/> : <FileText size={16}/>}
+                EXPORT PDF
+            </button>
+            <button
+                disabled={!validateSelection() || exporting === 'excel' || loading}
+                onClick={() => handleExport("excel")}
+                className="flex-1 md:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl flex items-center justify-center gap-3 transition-all text-[10px] font-black shadow-lg shadow-emerald-500/10 uppercase tracking-widest"
+            >
+                {exporting === 'excel' ? <Loader2 className="animate-spin" size={16}/> : <FileSpreadsheet size={16}/>}
+                EXPORT EXCEL
+            </button>
+
+            <Link href="/dashboard" className="flex-1 md:flex-initial btn-outline px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all">
+                <ArrowLeft size={16} className="mr-2"/> Back
+            </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20 lg:pb-0">
         <div className="lg:col-span-4 space-y-6">
             <Card className="apple-card p-6 md:p-8 space-y-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm rounded-[2.5rem]">
-                <div className="space-y-6">
+                <div id="report-filters" className="space-y-6">
                     <div className="flex items-center gap-2 mb-2"><Settings2 className="text-blue-600" size={16} /><h3 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-white">1. Data Filters</h3></div>
                     <div className="grid grid-cols-2 gap-2">
                         <ResourceBtn active={resource === "POWER"} onClick={() => setResource("POWER")} label="Power" icon={Zap} color="blue" />
@@ -297,8 +322,8 @@ export default function ReportGeneratorPage() {
                     </div>
                     {period === "CUSTOM" && (
                         <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-300">
-                            <div className="space-y-1"><span className="text-[7px] font-black text-zinc-400 uppercase ml-1">Start</span><input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-black border-none outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
-                            <div className="space-y-1"><span className="text-[7px] font-black text-zinc-400 uppercase ml-1">End</span><input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-black border-none outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
+                            <div className="space-y-1"><span className="text-[7px] font-black text-zinc-400 uppercase ml-1">Start</span><input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-black border-none outline-none focus:ring-2 focus:ring-blue-600/10 text-zinc-900 dark:text-white" /></div>
+                            <div className="space-y-1"><span className="text-[7px] font-black text-zinc-400 uppercase ml-1">End</span><input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-black border-none outline-none focus:ring-2 focus:ring-blue-600/10 text-zinc-900 dark:text-white" /></div>
                         </div>
                     )}
                     <div className="space-y-3">
@@ -311,7 +336,7 @@ export default function ReportGeneratorPage() {
                     </div>
                 </div>
 
-                <div className="space-y-6 pt-8 border-t border-zinc-100 dark:border-zinc-800">
+                <div id="section-builder" className="space-y-6 pt-8 border-t border-zinc-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2 mb-4"><ClipboardList className="text-blue-600" size={16} /><h3 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-white">2. Build Sections</h3></div>
                     <div className="space-y-3">
                         <SectionToggle label="Consumption Trends (Chart)" active={includeChart} onChange={setIncludeChart} />
@@ -326,16 +351,15 @@ export default function ReportGeneratorPage() {
                     <div className="space-y-1"><label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-1 flex items-center gap-2"><MessageSquare size={10}/> Contextual Note</label><textarea rows={3} value={customNote} onChange={e => setCustomNote(e.target.value)} placeholder="Add professional commentary..." className="w-full p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl text-[10px] font-bold border-none outline-none resize-none text-zinc-900 dark:text-white" /></div>
                 </div>
 
-                <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
-                    {!validateSelection() && <p className="text-[8px] font-black text-red-500 uppercase tracking-widest text-center mb-2">Select at least one section</p>}
-                    <button disabled={!validateSelection() || exporting === 'pdf' || loading} onClick={() => handleExport("pdf")} className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10 text-xs font-black uppercase">{exporting === 'pdf' ? <Loader2 className="animate-spin" size={18}/> : <FileText size={18}/>} EXPORT PDF</button>
-                    <button disabled={!validateSelection() || exporting === 'excel' || loading} onClick={() => handleExport("excel")} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl flex items-center justify-center gap-3 transition-all text-xs font-black shadow-lg shadow-emerald-500/10 uppercase">{exporting === 'excel' ? <Loader2 className="animate-spin" size={18}/> : <FileSpreadsheet size={18}/>} EXPORT EXCEL</button>
+                <div className="pt-4 flex items-center justify-center gap-3 opacity-30">
+                    <User size={12} className="text-zinc-400" />
+                    <span className="text-[7px] font-black uppercase text-zinc-400">Authorized: {adminName}</span>
                 </div>
             </Card>
         </div>
 
         <div className="lg:col-span-8 space-y-6">
-            <Card className="apple-card p-6 md:p-12 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-none shadow-sm min-h-[600px] flex flex-col relative overflow-hidden text-left rounded-[3rem]">
+            <Card id="report-preview" className="apple-card p-6 md:p-12 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-none shadow-sm min-h-[600px] flex flex-col relative overflow-hidden text-left rounded-[3rem]">
                 {loading ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-4 text-zinc-400"><Loader2 className="animate-spin text-blue-600" size={56} /><p className="text-[10px] font-black uppercase tracking-[0.3em]">Building dynamic preview...</p></div>
                 ) : reportData ? (
@@ -425,7 +449,7 @@ const CustomTooltip = ({ active, payload, label, theme }: any) => {
       return (
         <div className={cn("backdrop-blur-xl border p-4 rounded-[1.5rem] shadow-2xl transition-all", theme.isDark ? "bg-zinc-900/90 border-white/10" : "bg-white/90 border-zinc-200")}>
           <p className="text-[10px] font-black uppercase tracking-widest mb-2 text-zinc-400">{label}</p>
-          <div className="space-y-1">
+          <div className="space-y-1 text-left">
             <span className="text-[10px] font-bold text-zinc-500 uppercase">Usage: </span>
             <span className={cn("text-xs font-black", theme.isDark ? "text-white" : "text-zinc-900")}>{payload[0].value.toFixed(2)}{data.source === 'INTERPOLATED' ? '*' : ''}</span>
           </div>

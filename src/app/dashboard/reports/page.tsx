@@ -269,14 +269,14 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-6 px-2">
+    <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left selection:bg-blue-500/30">
+      <div id="audit-header" className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-6 px-2">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-600 mb-0.5">Audit Logs</p>
           <h1 className="text-2xl lg:text-4xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Submission Audit</h1>
           <p className="text-zinc-500 font-bold uppercase text-[8px] lg:text-[9px] tracking-widest mt-1">Verify and manage field readings</p>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+        <div id="audit-filters" className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-4 py-2 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
                 <Calendar className="text-blue-600" size={16} />
                 <input
@@ -298,7 +298,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 px-2">
+      <div id="audit-batch-actions" className="flex flex-wrap items-center justify-between gap-4 px-2">
           <div className="flex gap-1 overflow-x-auto custom-scrollbar no-scrollbar">
             {["ALL", "POWER", "WATER"].map((t) => (
                 <button
@@ -336,7 +336,7 @@ export default function ReportsPage() {
       </div>
 
       {/* MOBILE LIST VIEW */}
-      <div className="lg:hidden space-y-3 px-2 pb-10">
+      <div id="audit-list-mobile" className="lg:hidden space-y-3 px-2 pb-10">
           {filteredReadings.map(item => (
               <div
                 key={item.id}
@@ -377,7 +377,7 @@ export default function ReportsPage() {
       </div>
 
       {/* DESKTOP TABLE VIEW */}
-      <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[2rem] overflow-hidden shadow-sm mx-2">
+      <div id="audit-table-desktop" className="hidden lg:block bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-[2rem] overflow-hidden shadow-sm mx-2">
         {loading ? (
            <div className="p-20 flex flex-col items-center justify-center gap-4 text-zinc-400">
               <Loader2 className="animate-spin text-blue-600" size={32} />

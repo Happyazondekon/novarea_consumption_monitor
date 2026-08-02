@@ -129,7 +129,7 @@ export default function DailyEventsPage() {
 
   if (showWizard) {
     return (
-      <div className="w-full space-y-4 lg:space-y-6 animate-fade-in pb-20 px-4 lg:px-6 text-left">
+      <div id="event-wizard-container" className="w-full space-y-4 lg:space-y-6 animate-fade-in pb-20 px-4 lg:px-6 text-left">
         <div className="flex items-center justify-between">
            <div>
               <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-50 tracking-tighter uppercase leading-none">New Context</h2>
@@ -140,7 +140,7 @@ export default function DailyEventsPage() {
            </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div id="wizard-steps-indicator" className="grid grid-cols-3 gap-2">
           {steps.map((s) => (
             <div
               key={s.id}
@@ -162,9 +162,9 @@ export default function DailyEventsPage() {
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden min-h-[400px] flex flex-col">
           <div className="p-6 lg:p-8 flex-1">
              {activeStep === 0 && (
-                <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 text-center">
+                <div id="step-resource-selection" className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 text-center">
                    <div className="space-y-1">
-                      <h3 className="text-xl font-black uppercase tracking-tighter">Choose Resource</h3>
+                      <h3 className="text-xl font-black uppercase tracking-tighter text-zinc-900 dark:text-white">Choose Resource</h3>
                       <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Utility selection</p>
                    </div>
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
@@ -187,14 +187,14 @@ export default function DailyEventsPage() {
              )}
 
              {activeStep === 1 && (
-                <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+                <div id="step-anomaly-log" className="space-y-6 animate-in slide-in-from-right-4 duration-500">
                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4 gap-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600">
                            {selectedCategory === 'POWER' ? <Zap size={20}/> : <Droplets size={20}/>}
                         </div>
                         <div>
-                           <h3 className="text-base font-black uppercase tracking-tighter leading-none">{selectedCategory} Anomalies</h3>
+                           <h3 className="text-base font-black uppercase tracking-tighter leading-none text-zinc-900 dark:text-white">{selectedCategory} Anomalies</h3>
                         </div>
                       </div>
                       <div className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest self-start">
@@ -217,7 +217,7 @@ export default function DailyEventsPage() {
                                               autoFocus
                                               value={customDescriptions[type.id] || ""}
                                               onChange={(e) => updateCustomDescription(type.id, e.target.value)}
-                                              className="w-full bg-zinc-50 dark:bg-zinc-800 border-b border-blue-600 p-2 text-[10px] font-bold outline-none placeholder:text-zinc-400"
+                                              className="w-full bg-zinc-50 dark:bg-zinc-800 border-b border-blue-600 p-2 text-[10px] font-bold outline-none placeholder:text-zinc-400 text-zinc-900 dark:text-white"
                                               placeholder={`Optional note for ${type.code}...`}
                                           />
                                         </div>
@@ -240,7 +240,7 @@ export default function DailyEventsPage() {
                                               autoFocus
                                               value={customDescriptions[type.id] || ""}
                                               onChange={(e) => updateCustomDescription(type.id, e.target.value)}
-                                              className="w-full bg-zinc-50 dark:bg-zinc-800 border-b border-blue-600 p-2 text-[10px] font-bold outline-none placeholder:text-zinc-400"
+                                              className="w-full bg-zinc-50 dark:bg-zinc-800 border-b border-blue-600 p-2 text-[10px] font-bold outline-none placeholder:text-zinc-400 text-zinc-900 dark:text-white"
                                               placeholder={`Optional note for ${type.code}...`}
                                           />
                                         </div>
@@ -254,12 +254,12 @@ export default function DailyEventsPage() {
              )}
 
              {activeStep === 2 && (
-                <div className="space-y-6 py-4 flex flex-col items-center justify-center animate-in zoom-in-95 duration-500 text-center">
+                <div id="step-finalize-events" className="space-y-6 py-4 flex flex-col items-center justify-center animate-in zoom-in-95 duration-500 text-center">
                    <div className="w-16 h-16 rounded-[1.2rem] bg-blue-600 text-white flex items-center justify-center shadow-lg">
                       <CheckCircle2 size={32} />
                    </div>
                    <div className="space-y-1">
-                      <h3 className="text-xl font-black uppercase tracking-tighter">Ready to Publish</h3>
+                      <h3 className="text-xl font-black uppercase tracking-tighter text-zinc-900 dark:text-white">Ready to Publish</h3>
                       <p className="text-zinc-500 font-bold uppercase text-[8px] tracking-widest">
                         Review for {format(new Date(selectedDate), 'MMM do')}
                       </p>
@@ -269,7 +269,7 @@ export default function DailyEventsPage() {
                             <div key={id} className="flex flex-col gap-1 bg-zinc-50 dark:bg-zinc-800 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 text-left">
                                 <div className="flex items-center gap-2.5">
                                   <div className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                                  <span className="text-[9px] font-black uppercase truncate">{eventTypes.find(t => t.id === id)?.description}</span>
+                                  <span className="text-[9px] font-black uppercase truncate text-zinc-900 dark:text-white">{eventTypes.find(t => t.id === id)?.description}</span>
                                 </div>
                                 {customDescriptions[id] && (
                                   <p className="text-[8px] font-bold text-zinc-400 italic ml-4">"{customDescriptions[id]}"</p>
@@ -285,6 +285,7 @@ export default function DailyEventsPage() {
              <button onClick={() => setActiveStep(prev => prev - 1)} disabled={activeStep === 0} className="text-[9px] font-black uppercase tracking-widest text-zinc-400 disabled:opacity-0 transition-all">PREVIOUS</button>
              {activeStep < 2 ? (
                 <button
+                  id="wizard-next-btn"
                   onClick={() => setActiveStep(prev => prev + 1)}
                   disabled={(activeStep === 0 && !selectedCategory) || (activeStep === 1 && selectedIds.length === 0)}
                   className="btn-primary px-8 py-2.5 rounded-xl text-[9px] font-black uppercase"
@@ -292,7 +293,7 @@ export default function DailyEventsPage() {
                   NEXT STEP
                 </button>
              ) : (
-                <button onClick={handleSaveEvents} disabled={submitting} className="btn-success px-10 py-2.5 rounded-xl text-[9px] font-black uppercase flex items-center gap-2">
+                <button id="wizard-publish-btn" onClick={handleSaveEvents} disabled={submitting} className="btn-success px-10 py-2.5 rounded-xl text-[9px] font-black uppercase flex items-center gap-2">
                    {submitting ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
                    PUBLISH
                 </button>
@@ -304,14 +305,14 @@ export default function DailyEventsPage() {
   }
 
   return (
-    <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6 px-2">
+    <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left selection:bg-blue-500/30">
+      <div id="events-header" className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6 px-2">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-600 mb-0.5">Audit Log</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-600 mb-0.5">Anomaly Hub</p>
           <h1 className="text-2xl lg:text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">Daily Context</h1>
         </div>
         <div className="flex items-center gap-2">
-            <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-4 py-2 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
+            <div id="events-date-picker" className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-4 py-2 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
                 <CalendarIcon className="text-blue-600" size={16} />
                 <input
                     type="date"
@@ -320,11 +321,11 @@ export default function DailyEventsPage() {
                     className="bg-transparent border-none outline-none font-black uppercase text-[10px] tracking-widest py-1"
                 />
             </div>
-            <button onClick={openNewEventModal} className="btn-primary p-2.5 rounded-xl shadow-lg"><Plus size={18} /></button>
+            <button id="open-wizard-btn" onClick={openNewEventModal} className="btn-primary p-2.5 rounded-xl shadow-lg"><Plus size={18} /></button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 pb-20 lg:pb-0">
+      <div id="events-grid" className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 pb-20 lg:pb-0">
         <ResourceBlock title="Electricity" icon={Zap} color="blue" increaseEvents={events.filter(e => e.eventType.category === 'POWER' && e.eventType.type === 'INCREASE')} decreaseEvents={events.filter(e => e.eventType.category === 'POWER' && e.eventType.type === 'DECREASE')} onDelete={handleDelete} />
         <ResourceBlock title="Water" icon={Droplets} color="cyan" increaseEvents={events.filter(e => e.eventType.category === 'WATER' && e.eventType.type === 'INCREASE')} decreaseEvents={events.filter(e => e.eventType.category === 'WATER' && e.eventType.type === 'DECREASE')} onDelete={handleDelete} />
       </div>
@@ -352,7 +353,7 @@ function ResourceBlock({ title, icon: Icon, color, increaseEvents, decreaseEvent
                             <div className="overflow-hidden">
                                 <p className="text-[10px] font-bold text-zinc-900 dark:text-white uppercase leading-none truncate">{ev.eventType.description}</p>
                                 <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mt-1.5 truncate">
-                                  {ev.eventType.code} {ev.comment ? <span className="text-blue-600 ml-1">• {ev.comment}</span> : ''}
+                                  {ev.eventType.code} {ev.comment ? <span className="text-blue-600 ml-1 font-black">• {ev.comment}</span> : ''}
                                 </p>
                             </div>
                         </div>

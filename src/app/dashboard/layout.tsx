@@ -1,46 +1,33 @@
-"use client";
+import { Sidebar } from "@/components/Sidebar";
+import { Topbar } from "@/components/Topbar";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { MobileMenu } from "@/components/MobileMenu";
+import { TutorialProvider } from "@/components/TutorialProvider";
 
-import React, { useState, useEffect } from 'react';
-import { Sidebar } from '@/components/Sidebar';
-import { Topbar } from '@/components/Topbar';
-import { BottomNav } from '@/components/BottomNav';
-import { useSession } from 'next-auth/react';
-import { Loader2 } from 'lucide-react';
-
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
+  const session = await auth();
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <Loader2 className="animate-spin text-blue-600" size={40} />
-      </div>
-    );
+  if (!session) {
+    redirect("/login");
   }
 
   return (
-    <div className="flex h-screen bg-zinc-50 dark:bg-[#09090b] overflow-hidden">
-      {/* Sidebar hidden on mobile, visible on LG screens */}
-      <div className="hidden lg:block h-full shrink-0">
+    <TutorialProvider>
+        <div className="flex h-screen bg-white dark:bg-[#09090b] overflow-hidden transition-colors duration-500">
         <Sidebar />
-      </div>
-
-      <div className="flex flex-col flex-1 min-w-0 relative">
-        <Topbar />
-
-        <main className="flex-1 overflow-y-auto custom-scrollbar pb-20 lg:pb-6">
-          <div className="container mx-auto p-4 md:p-8">
+        <div className="flex-1 flex flex-col min-w-0 relative">
+            <Topbar />
+            <main className="flex-1 overflow-y-auto custom-scrollbar bg-white dark:bg-black/20">
             {children}
-          </div>
-        </main>
-
-        {/* Mobile-only Bottom Navigation for Technicians */}
-        <BottomNav />
-      </div>
-    </div>
+            </main>
+            <MobileMenu />
+        </div>
+        </div>
+    </TutorialProvider>
   );
 }
