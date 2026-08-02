@@ -35,8 +35,8 @@ export function BottomNav() {
     { icon: LayoutDashboard, label: 'Home', href: '/dashboard' },
     { icon: Calendar, label: 'Events', href: '/dashboard/events' },
     { icon: Plus, label: 'New', href: '/dashboard/events', center: true }, // Re-routed to New Event
+    { icon: MessageSquare, label: 'Mission', href: '/dashboard/instructions' },
     { icon: FileText, label: 'Reports', href: '/dashboard/reports' },
-    { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
   ];
 
   const navItems = isAdmin ? adminItems : isTech ? techItems : [];

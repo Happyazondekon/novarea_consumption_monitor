@@ -93,7 +93,7 @@ export default function NewReadingPage() {
   };
 
   return (
-    <div className="w-full py-6 space-y-6 animate-fade-in px-4 lg:px-6 relative text-left">
+    <div className="w-full min-h-full py-6 pb-24 space-y-6 animate-fade-in px-4 lg:px-6 relative text-left overflow-y-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div>
