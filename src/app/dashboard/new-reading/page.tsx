@@ -33,13 +33,50 @@ export default function NewReadingPage() {
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (base64: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Force max dimension of 1024px to drastically reduce payload size
+        const MAX_DIM = 1024;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height *= MAX_DIM / width;
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width *= MAX_DIM / height;
+            height = MAX_DIM;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Compress at 0.7 quality for mobile speed
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    });
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setFileName(file.name);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoData(reader.result as string);
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        // Apply compression immediately for mobile photos
+        const compressed = await compressImage(base64);
+        setPhotoData(compressed);
       };
       reader.readAsDataURL(file);
     }
@@ -77,6 +114,10 @@ export default function NewReadingPage() {
         if (res.ok) {
             setStep(3);
         } else {
+            // Handle specifically the 413 error from Vercel
+            if (res.status === 413) {
+              throw new Error("Photo size too large. Please try a lower resolution or different photo.");
+            }
             const error = await res.json();
             throw new Error(error.error || "Failed to save reading");
         }
@@ -123,7 +164,7 @@ export default function NewReadingPage() {
         ))}
       </div>
 
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden">
         <div className="p-6 md:p-8">
 
           {step === 1 && (
@@ -153,7 +194,7 @@ export default function NewReadingPage() {
                            <h3 className="font-black text-[10px] uppercase tracking-widest text-zinc-900 dark:text-zinc-100">Meter Index</h3>
                         </div>
 
-                        <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl p-6 border border-zinc-100 dark:border-zinc-800 flex flex-col items-center">
+                        <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 flex flex-col items-center">
                             <div className="flex items-center gap-4">
                                 <button type="button" onClick={handleDecrement} className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200 dark:border-zinc-700 hover:text-red-500 transition-all active:scale-90">
                                     <Minus size={18} />
@@ -235,7 +276,7 @@ export default function NewReadingPage() {
                     </div>
                 </div>
 
-                <div className="pt-8 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                <div className="pt-8 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center">
                     <button type="button" onClick={() => setStep(1)} className="text-[9px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-900 transition-all">
                         Back
                     </button>
@@ -296,7 +337,7 @@ function SelectionCard({ title, icon: Icon, active, onClick }: any) {
             "p-8 flex flex-col items-center gap-4 rounded-[2rem] transition-all duration-300 border text-center group",
             active
                 ? "bg-blue-600 border-blue-600 text-white shadow-xl -translate-y-1"
-                : "bg-white dark:bg-zinc-900 border-zinc-100 dark:border-zinc-800 hover:border-blue-200"
+                : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-blue-200"
         )}
     >
         <div className={cn(

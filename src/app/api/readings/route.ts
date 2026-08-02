@@ -4,6 +4,15 @@ import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+// Increase body limit for high-res mobile photos
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,7 +32,7 @@ export async function POST(req: Request) {
           value: parseFloat(value),
           photoUrl: photoData,
           timeOfDay: timeOfDay || (new Date().getHours() < 13 ? "MORNING" : "EVENING"),
-          isEdited: true // All new readings start as PENDING (Pending status is triggered by isEdited=true)
+          isEdited: true // All new readings start as PENDING
         },
       });
 
