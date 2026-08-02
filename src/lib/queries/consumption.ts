@@ -10,20 +10,29 @@ export async function getKPICards(resource: string = "POWER", targetDate: Date =
   const start = startOfDay(targetDate);
   const end = endOfDay(targetDate);
 
-  const powerToday = await prisma.consumption.aggregate({
-    where: { category: "POWER", date: { gte: start, lte: end } },
+  // 1. Last Reading (Value of the most recent reading for this resource)
+  const lastReadingRaw = await prisma.meterReading.findFirst({
+    where: { category: resource, isDeleted: false },
+    orderBy: { timestamp: 'desc' },
+    select: { value: true }
+  });
+  const lastReading = lastReadingRaw?.value || 0;
+
+  // 2. Usage Total Today (Sum of consumption for this resource today)
+  const usageToday = await prisma.consumption.aggregate({
+    where: { category: resource, date: { gte: start, lte: end } },
     _sum: { consumption: true }
   });
 
-  const waterToday = await prisma.consumption.aggregate({
-    where: { category: "WATER", date: { gte: start, lte: end } },
-    _sum: { consumption: true }
-  });
-
+  // 3. Active Events (Total anomalies for this resource today)
   const eventsToday = await prisma.dailyEvent.count({
-    where: { date: { gte: start, lte: end } }
+    where: {
+        date: { gte: start, lte: end },
+        eventType: { category: { in: [resource, "BOTH"] } }
+    }
   });
 
+  // 4. Daily Average (30-day verified average for this resource)
   const thirtyDaysAgo = subDays(start, 30);
   const totalConsumption30 = await prisma.consumption.aggregate({
     where: { category: resource, date: { gte: thirtyDaysAgo, lte: end } },
@@ -42,8 +51,8 @@ export async function getKPICards(resource: string = "POWER", targetDate: Date =
     : 0;
 
   return {
-    powerToday: (powerToday._sum.consumption || 0).toFixed(2),
-    waterToday: (waterToday._sum.consumption || 0).toFixed(2),
+    lastReading: lastReading.toFixed(2),
+    usageToday: (usageToday._sum.consumption || 0).toFixed(2),
     eventsToday,
     dailyAverage: avg.toFixed(2)
   };
@@ -77,12 +86,22 @@ export async function getChartData(resource: string, period: "WEEK" | "MONTH" | 
   });
 
   const events = await prisma.dailyEvent.findMany({
-    where: { date: { gte: startDate, lte: endDate }, eventType: { category: resource } },
+    where: {
+        date: { gte: startDate, lte: endDate },
+        eventType: { category: { in: [resource, "BOTH"] } }
+    },
     include: { eventType: true }
   });
 
   const eventTypesUsed = await prisma.eventType.findMany({
-      where: { dailyEvents: { some: { date: { gte: startDate, lte: endDate }, eventType: { category: resource } } } }
+      where: {
+        dailyEvents: {
+            some: {
+                date: { gte: startDate, lte: endDate },
+                eventType: { category: { in: [resource, "BOTH"] } }
+            }
+        }
+      }
   });
 
   const chartData = interval.map(date => {
@@ -153,13 +172,21 @@ export async function getReportData(resource: string, period: "WEEK" | "MONTH" |
     }
 
     const events = await prisma.dailyEvent.findMany({
-        where: { date: { gte: startDate, lte: endDate }, eventType: { category: resource } },
+        where: {
+            date: { gte: startDate, lte: endDate },
+            eventType: { category: { in: [resource, "BOTH"] } }
+        },
         include: { eventType: true }
     });
 
     const eventStats = await prisma.eventType.findMany({
         where: {
-            dailyEvents: { some: { date: { gte: startDate, lte: endDate }, eventType: { category: resource } } }
+            dailyEvents: {
+                some: {
+                    date: { gte: startDate, lte: endDate },
+                    eventType: { category: { in: [resource, "BOTH"] } }
+                }
+            }
         },
         include: { _count: { select: { dailyEvents: { where: { date: { gte: startDate, lte: endDate } } } } } }
     });

@@ -17,17 +17,23 @@ export async function POST(req: Request) {
     }
 
     if (action === "DELETE") {
-        // If not admin, only allow deleting own readings
-        if (role !== 'ADMINISTRATEUR') {
-            await prisma.meterReading.deleteMany({
-                where: { id: { in: ids }, userId: userId }
-            });
-        } else {
-            await prisma.meterReading.deleteMany({
-                where: { id: { in: ids } }
-            });
-        }
-        return NextResponse.json({ message: "Deleted successfully" });
+        // Find targeted readings that belong to the user (if not admin)
+        const readings = await prisma.meterReading.findMany({
+            where: {
+                id: { in: ids },
+                ...(role !== 'ADMINISTRATEUR' ? { userId } : {})
+            },
+            select: { id: true }
+        });
+
+        const targetIds = readings.map(r => r.id);
+
+        // Delete all at once. Consumption records will auto-delete due to Cascade
+        await prisma.meterReading.deleteMany({
+            where: { id: { in: targetIds } }
+        });
+
+        return NextResponse.json({ message: "Batch removal complete" });
     }
 
     if (action === "VALIDATE") {
@@ -37,11 +43,12 @@ export async function POST(req: Request) {
             where: { id: { in: ids } },
             data: { isEdited: false }
         });
-        return NextResponse.json({ message: "Validated successfully" });
+        return NextResponse.json({ message: "Batch validation complete" });
     }
 
     return NextResponse.json({ error: "Action not supported" }, { status: 400 });
   } catch (error) {
+    console.error("Batch Error:", error);
     return NextResponse.json({ error: "Batch operation failed" }, { status: 500 });
   }
 }

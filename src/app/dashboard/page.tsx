@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   MessageSquare,
   ShieldCheck,
-  ClipboardCheck
+  ClipboardCheck,
+  Hash
 } from 'lucide-react';
 import { Card } from "@/components/ui/Card";
 import Link from 'next/link';
@@ -46,18 +47,11 @@ export default function DashboardPage() {
   const user = session?.user as any;
   const isAdmin = user?.role === 'ADMINISTRATEUR';
 
+  const [activeResource, setActiveResource] = useState<"POWER" | "WATER">("POWER");
+  const [activePeriod, setActivePeriod] = useState<"WEEK" | "MONTH" | "YEAR">("WEEK");
+
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  const [powerPeriod, setPowerPeriod] = useState<"WEEK" | "MONTH" | "YEAR">("WEEK");
-  const [powerData, setPowerData] = useState<any[]>([]);
-  const [powerEvents, setPowerEvents] = useState<any[]>([]);
-  const [loadingPower, setLoadingPower] = useState(false);
-
-  const [waterPeriod, setWaterPeriod] = useState<"WEEK" | "MONTH" | "YEAR">("WEEK");
-  const [waterData, setWaterData] = useState<any[]>([]);
-  const [waterEvents, setWaterEvents] = useState<any[]>([]);
-  const [loadingWater, setLoadingWater] = useState(false);
 
   const isDark = resolvedTheme === 'dark';
   const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
@@ -65,69 +59,24 @@ export default function DashboardPage() {
   const tooltipBg = isDark ? "rgba(24, 24, 27, 0.95)" : "rgba(255, 255, 255, 1)";
   const tooltipBorder = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.15)";
 
-  const fetchData = async () => {
+  const fetchDashboardData = async () => {
     if (!isAdmin) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/dashboard/stats");
+      const res = await fetch(`/api/dashboard/stats?resource=${activeResource}&period=${activePeriod}`);
       if (res.ok) setStats(await res.json());
     } catch (err) {
-      console.error("KPI Fetch error:", err);
+      console.error("Dashboard Fetch error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchPowerChart = async () => {
-    if (!isAdmin) return;
-    setLoadingPower(true);
-    try {
-        const res = await fetch(`/api/dashboard/stats?resource=POWER&period=${powerPeriod}`);
-        if (res.ok) {
-            const data = await res.json();
-            setPowerData(data.chartData);
-            setPowerEvents(data.eventTypes);
-            if (!stats) setStats(data);
-        }
-    } catch (err) {
-        console.error("Power Chart Error:", err);
-    } finally {
-        setLoadingPower(false);
-    }
-  };
-
-  const fetchWaterChart = async () => {
-    if (!isAdmin) return;
-    setLoadingWater(true);
-    try {
-        const res = await fetch(`/api/dashboard/stats?resource=WATER&period=${waterPeriod}`);
-        if (res.ok) {
-            const data = await res.json();
-            setWaterData(data.chartData);
-            setWaterEvents(data.eventTypes);
-        }
-    } catch (err) {
-        console.error("Water Chart Error:", err);
-    } finally {
-        setLoadingWater(false);
-    }
-  };
-
   useEffect(() => {
     if (status === "authenticated" && isAdmin) {
-        fetchData();
-        fetchPowerChart();
-        fetchWaterChart();
+        fetchDashboardData();
     }
-  }, [status, isAdmin]);
-
-  useEffect(() => {
-    if (status === "authenticated" && isAdmin) fetchPowerChart();
-  }, [powerPeriod]);
-
-  useEffect(() => {
-    if (status === "authenticated" && isAdmin) fetchWaterChart();
-  }, [waterPeriod]);
+  }, [status, isAdmin, activeResource, activePeriod]);
 
   if (status === "loading") return (
     <div className="h-full flex items-center justify-center py-20">
@@ -139,113 +88,122 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-6 md:space-y-10 animate-fade-in pb-20 md:pb-6 px-0 md:px-6 text-left">
+
+      {/* HEADER WITH RESOURCE TOGGLE */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-200 dark:border-zinc-800 pb-6 md:pb-10 px-4 md:px-2">
-        <div>
-          <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] md:text-[10px] mb-2">System Analytics</p>
-          <h1 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">
-             Operational Insights
-          </h1>
-          <p className="text-zinc-500 font-bold uppercase text-[8px] md:text-[9px] tracking-widest mt-2 md:mt-3">Strict Database-Validated Monitoring</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
-           <Link href="/dashboard/reports" className="flex-1 md:flex-initial btn-outline px-4 md:px-8 py-2.5 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest">
-             <FileText size={14} /> Reports
-           </Link>
-           <Link href="/dashboard/reports/generator" className="flex-1 md:flex-initial btn-primary px-4 md:px-10 py-2.5 md:py-3 text-[9px] md:text-[10px] shadow-xl shadow-blue-500/20 font-black uppercase tracking-widest">
-             <Calendar size={14} /> Generator
-           </Link>
-        </div>
-      </div>
+        <div className="space-y-4">
+          <div>
+            <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] md:text-[10px] mb-2">Command Center</p>
+            <h1 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">
+               Operational Insights
+            </h1>
+          </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 px-4 md:px-2">
-        <KPICard title="Electricity Usage" value={stats?.powerToday || "0.00"} unit="kWh" sub="Total Today" icon={Zap} color="blue" loading={loading} />
-        <KPICard title="Water Usage" value={stats?.waterToday || "0.00"} unit="m³" sub="Total Today" icon={Droplets} color="cyan" loading={loading} />
-        <KPICard title="Active Events" value={stats?.eventsToday || "0"} unit="Notes" sub="Anomalies logged" icon={Activity} color="purple" loading={loading} />
-        <KPICard title="Daily Average" value={stats?.dailyAverage || "0.00"} unit="kWh/d" sub="Verified (30d)" icon={TrendingUp} color="green" loading={loading} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10 px-4 md:px-2">
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
-                <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.4)]" />
-                    <h2 className="text-lg md:text-xl font-black uppercase tracking-tighter">Electricity</h2>
-                </div>
-                <PeriodSelector active={powerPeriod} onChange={setPowerPeriod} />
-            </div>
-            <Card className="apple-card p-4 md:p-8 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-none shadow-sm min-h-[400px] md:min-h-[450px] flex flex-col">
-                {loadingPower ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 gap-4">
-                        <Loader2 className="animate-spin text-blue-600" size={32} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Compiling...</span>
-                    </div>
-                ) : (
-                    <>
-                        <div className="flex-1 min-h-[250px] md:min-h-[300px]">
-                            <ResponsiveContainer width="100%" height={320}>
-                                <ComposedChart data={powerData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: axisColor }} dy={10} />
-                                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: axisColor }} />
-                                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: '#ef4444' }} />
-                                    <Tooltip content={<CustomTooltip theme={{ bg: tooltipBg, border: tooltipBorder, isDark }} />} />
-                                    <Bar yAxisId="left" dataKey="consumption" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={powerPeriod === "YEAR" ? 30 : 12} />
-                                    <Line
-                                        yAxisId="right"
-                                        type="monotone"
-                                        dataKey="events"
-                                        stroke="#ef4444"
-                                        strokeWidth={2}
-                                        dot={{ r: 3, fill: '#ef4444', strokeWidth: 0 }}
-                                    >
-                                        <LabelList dataKey="eventCodes" position="top" style={{ fontSize: '9px', fontStyle: 'italic', fontWeight: 900, fill: '#ef4444' }} />
-                                    </Line>
-                                </ComposedChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-zinc-200 dark:border-zinc-800">
-                             <p className="text-[8px] md:text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-4">Anomalies</p>
-                             <div className="flex flex-wrap gap-2 md:gap-4">
-                                {powerEvents.length > 0 ? powerEvents.map(type => (
-                                    <div key={type.id} className="flex items-center gap-1.5 md:gap-2 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <span className="text-[9px] font-black text-blue-600">{type.code}</span>
-                                        <span className="text-[8px] font-bold text-zinc-500 uppercase truncate max-w-[80px] md:max-w-none">{type.description}</span>
-                                    </div>
-                                )) : (
-                                    <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">No anomalies recorded</span>
-                                )}
-                             </div>
-                        </div>
-                    </>
+          <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-full md:w-auto">
+            <button
+                onClick={() => setActiveResource("POWER")}
+                className={cn(
+                    "flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                    activeResource === "POWER" ? "bg-white dark:bg-zinc-700 text-blue-600 shadow-sm" : "text-zinc-400 hover:text-zinc-600"
                 )}
-            </Card>
+            >
+                <Zap size={14} /> Electricity
+            </button>
+            <button
+                onClick={() => setActiveResource("WATER")}
+                className={cn(
+                    "flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                    activeResource === "WATER" ? "bg-white dark:bg-zinc-700 text-cyan-500 shadow-sm" : "text-zinc-400 hover:text-zinc-600"
+                )}
+            >
+                <Droplets size={14} /> Water
+            </button>
+          </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
+            <Link href="/dashboard/reports" className="flex-1 md:flex-initial btn-outline px-4 md:px-8 py-2.5 md:py-3 text-[9px] md:text-[10px] font-black uppercase tracking-widest">
+                <FileText size={14} /> Reports
+            </Link>
+            <Link href="/dashboard/reports/generator" className="flex-1 md:flex-initial btn-primary px-4 md:px-10 py-2.5 md:py-3 text-[9px] md:text-[10px] shadow-xl shadow-blue-500/20 font-black uppercase tracking-widest">
+                <Calendar size={14} /> Generator
+            </Link>
+        </div>
+      </div>
+
+      {/* KPI GRID */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 px-4 md:px-2">
+        <KPICard
+            title="Last Reading"
+            value={stats?.lastReading || "0.00"}
+            unit={activeResource === 'POWER' ? 'kWh' : 'm³'}
+            sub="Current Index"
+            icon={Hash}
+            color={activeResource === 'POWER' ? 'blue' : 'cyan'}
+            loading={loading}
+        />
+        <KPICard
+            title="Usage Total Today"
+            value={stats?.usageToday || "0.00"}
+            unit={activeResource === 'POWER' ? 'kWh' : 'm³'}
+            sub="24h Delta"
+            icon={activeResource === 'POWER' ? Zap : Droplets}
+            color={activeResource === 'POWER' ? 'blue' : 'cyan'}
+            loading={loading}
+        />
+        <KPICard
+            title="Active Events"
+            value={stats?.eventsToday || "0"}
+            unit="Notes"
+            sub="Anomalies Logged"
+            icon={Activity}
+            color="purple"
+            loading={loading}
+        />
+        <KPICard
+            title="Daily Average"
+            value={stats?.dailyAverage || "0.00"}
+            unit={activeResource === 'POWER' ? 'kWh/d' : 'm³/d'}
+            sub="30-Day Mean"
+            icon={TrendingUp}
+            color="green"
+            loading={loading}
+        />
+      </div>
+
+      {/* TREND CHART WITH LOCALIZED PERIOD SELECTOR */}
+      <div className="px-4 md:px-2">
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
                 <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
-                    <h2 className="text-lg md:text-xl font-black uppercase tracking-tighter">Water</h2>
+                    <div className={cn(
+                        "w-1.5 h-6 rounded-full",
+                        activeResource === 'POWER' ? "bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.4)]" : "bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]"
+                    )} />
+                    <h2 className="text-lg md:text-xl font-black uppercase tracking-tighter">
+                        {activeResource === 'POWER' ? 'Electricity' : 'Water'} Consumption Trends
+                    </h2>
                 </div>
-                <PeriodSelector active={waterPeriod} onChange={setWaterPeriod} />
+                {/* Period Selector restored here (Localized to graph) */}
+                <PeriodSelector active={activePeriod} onChange={setActivePeriod} />
             </div>
-            <Card className="apple-card p-4 md:p-8 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-none shadow-sm min-h-[400px] md:min-h-[450px] flex flex-col">
-                {loadingWater ? (
+            <Card className="apple-card p-4 md:p-8 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-none shadow-sm min-h-[400px] md:min-h-[500px] flex flex-col">
+                {loading ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 gap-4">
-                        <Loader2 className="animate-spin text-cyan-600" size={32} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Analysing...</span>
+                        <Loader2 className="animate-spin text-blue-600" size={48} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Querying Operational Data...</span>
                     </div>
                 ) : (
                     <>
-                        <div className="flex-1 min-h-[250px] md:min-h-[300px]">
-                            <ResponsiveContainer width="100%" height={320}>
-                                <ComposedChart data={waterData} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
+                        <div className="flex-1 min-h-[300px] md:min-h-[350px]">
+                            <ResponsiveContainer width="100%" height={350}>
+                                <ComposedChart data={stats?.chartData || []} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: axisColor }} dy={10} />
                                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: axisColor }} />
                                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 8, fontWeight: 900, fill: '#ef4444' }} />
                                     <Tooltip content={<CustomTooltip theme={{ bg: tooltipBg, border: tooltipBorder, isDark }} />} />
-                                    <Bar yAxisId="left" dataKey="consumption" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={waterPeriod === "YEAR" ? 30 : 12} />
+                                    <Bar yAxisId="left" dataKey="consumption" fill={activeResource === 'POWER' ? "#3b82f6" : "#06b6d4"} radius={[4, 4, 0, 0]} barSize={activePeriod === "YEAR" ? 30 : 12} />
                                     <Line
                                         yAxisId="right"
                                         type="monotone"
@@ -259,16 +217,16 @@ export default function DashboardPage() {
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-zinc-200 dark:border-zinc-800">
-                             <p className="text-[8px] md:text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-4">Anomalies</p>
+                        <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-800">
+                             <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-4">Contextual Legend (VISSIM)</p>
                              <div className="flex flex-wrap gap-2 md:gap-4">
-                                {waterEvents.length > 0 ? waterEvents.map(type => (
-                                    <div key={type.id} className="flex items-center gap-1.5 md:gap-2 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                        <span className="text-[9px] font-black text-cyan-600">{type.code}</span>
-                                        <span className="text-[8px] font-bold text-zinc-500 uppercase truncate max-w-[80px] md:max-w-none">{type.description}</span>
+                                {stats?.eventTypes?.length > 0 ? stats.eventTypes.map((type: any) => (
+                                    <div key={type.id} className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                        <span className={cn("text-[10px] font-black", activeResource === 'POWER' ? "text-blue-600" : "text-cyan-500")}>{type.code}</span>
+                                        <span className="text-[9px] font-bold text-zinc-500 uppercase">{type.description}</span>
                                     </div>
                                 )) : (
-                                    <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">No anomalies recorded</span>
+                                    <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">No contextual events for this scope</span>
                                 )}
                              </div>
                         </div>
@@ -290,26 +248,26 @@ function KPICard({ title, value, unit, sub, icon: Icon, color, loading }: any) {
     };
 
     return (
-        <Card className="apple-card p-5 md:p-6 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-none shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-            <div className="flex items-center justify-between mb-6 md:mb-8">
-                <div className={cn("p-2 md:p-2.5 rounded-xl", colors[color])}>
+        <Card className="apple-card p-4 md:p-6 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-none shadow-sm flex flex-col justify-between hover:shadow-md transition-all h-full">
+            <div className="flex items-center justify-between mb-4 md:mb-8">
+                <div className={cn("p-2 rounded-xl", colors[color])}>
                     <Icon className="w-4 h-4 md:w-5 md:h-5" />
                 </div>
-                <div className="flex items-center gap-1.5 text-[8px] font-black text-zinc-400 uppercase tracking-widest">
+                <div className="flex items-center gap-1.5 text-[7px] md:text-[8px] font-black text-zinc-400 uppercase tracking-widest">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
                     Live
                 </div>
             </div>
             <div>
-                <p className="text-[8px] md:text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-1.5 md:mb-2">{title}</p>
+                <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-1.5">{title}</p>
                 {loading ? (
-                    <div className="h-8 md:h-10 w-24 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />
+                    <div className="h-8 md:h-10 w-full bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />
                 ) : (
-                    <h3 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase">
-                        {value} <span className="text-xs md:text-sm text-zinc-400 ml-1">{unit}</span>
+                    <h3 className="text-xl md:text-3xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase truncate">
+                        {value} <span className="text-[10px] md:text-xs text-zinc-400 ml-1 font-bold">{unit}</span>
                     </h3>
                 )}
-                <p className="text-[9px] md:text-[10px] font-bold text-zinc-400 uppercase mt-2 tracking-widest opacity-60">{sub}</p>
+                <p className="text-[8px] md:text-[9px] font-bold text-zinc-400 uppercase mt-2 tracking-widest opacity-60 truncate">{sub}</p>
             </div>
         </Card>
     );
@@ -321,9 +279,9 @@ function PeriodSelector({ active, onChange }: any) {
             {["WEEK", "MONTH", "YEAR"].map((p) => (
                 <button
                     key={p}
-                    onClick={() => onChange(p)}
+                    onClick={() => onChange(p as any)}
                     className={cn(
-                        "flex-1 sm:flex-initial px-3 md:px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
+                        "flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
                         active === p ? "bg-white dark:bg-zinc-700 text-blue-600 shadow-sm" : "text-zinc-400 hover:text-zinc-600"
                     )}
                 >
@@ -419,7 +377,6 @@ function TechnicianDashboard({ isDark }: { isDark: boolean }) {
            <Link href="/dashboard/history" className="text-[10px] font-black uppercase text-blue-600 hover:underline">History</Link>
         </div>
 
-        {/* MOBILE CARDS FOR TECH DASHBOARD */}
         <div className="md:hidden grid grid-cols-1 gap-3">
             {readings.map((r) => (
                 <div key={r.id} className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
@@ -437,7 +394,6 @@ function TechnicianDashboard({ isDark }: { isDark: boolean }) {
             ))}
         </div>
 
-        {/* DESKTOP TABLE */}
         <div className="hidden md:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
            <table className="w-full text-left border-collapse">
               <thead>
@@ -477,11 +433,6 @@ function TechnicianDashboard({ isDark }: { isDark: boolean }) {
               </tbody>
            </table>
         </div>
-        {readings.length === 0 && (
-            <div className="py-20 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl">
-                <p className="text-[9px] font-black text-zinc-300 uppercase tracking-widest">No recent data entries</p>
-            </div>
-        )}
       </div>
     </div>
   );

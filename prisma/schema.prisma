@@ -39,26 +39,29 @@ model Instruction {
 }
 
 model MeterReading {
-  id           String   @id @default(cuid())
+  id           String         @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  category     String   // "WATER" | "POWER"
+  user         User           @relation(fields: [userId], references: [id])
+  category     String         // "WATER" | "POWER"
   value        Float
   photoUrl     String?
-  timestamp    DateTime @default(now())
-  timeOfDay    String   // "MORNING" | "EVENING"
-  isEdited     Boolean  @default(false)
-  isDeleted    Boolean  @default(false)
+  timestamp    DateTime       @default(now())
+  timeOfDay    String         // "MORNING" | "EVENING"
+  isEdited     Boolean        @default(false)
+  isDeleted    Boolean        @default(false)
+  consumption  Consumption?   // Relation to Consumption
 }
 
 model Consumption {
-  id            String   @id @default(cuid())
+  id            String       @id @default(cuid())
   date          DateTime
-  category      String   // "WATER" | "POWER"
+  category      String       // "WATER" | "POWER"
   previousValue Float
   currentValue  Float
   consumption   Float
-  createdAt     DateTime @default(now())
+  createdAt     DateTime     @default(now())
+  readingId     String?      @unique // Link to the MeterReading that generated this delta
+  reading       MeterReading? @relation(fields: [readingId], references: [id], onDelete: Cascade)
 }
 
 model EventType {
