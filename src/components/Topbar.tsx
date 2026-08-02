@@ -34,7 +34,7 @@ export function Topbar() {
         </div>
         <div className="flex flex-col text-left">
            <span className="text-[9px] lg:text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Welcome back,</span>
-           <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{user?.name?.split(' ')[0] || 'User'}</span>
+           <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{user?.name || 'User'}</span>
         </div>
       </div>
 

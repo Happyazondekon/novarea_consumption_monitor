@@ -284,7 +284,13 @@ export default function DailyEventsPage() {
           <div className="bg-zinc-50 dark:bg-zinc-800/50 p-4 lg:p-6 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800">
              <button onClick={() => setActiveStep(prev => prev - 1)} disabled={activeStep === 0} className="text-[9px] font-black uppercase tracking-widest text-zinc-400 disabled:opacity-0 transition-all">PREVIOUS</button>
              {activeStep < 2 ? (
-                <button onClick={() => setActiveStep(prev => prev + 1)} disabled={activeStep === 0 && !selectedCategory} className="btn-primary px-8 py-2.5 rounded-xl text-[9px] font-black uppercase">NEXT STEP</button>
+                <button
+                  onClick={() => setActiveStep(prev => prev + 1)}
+                  disabled={(activeStep === 0 && !selectedCategory) || (activeStep === 1 && selectedIds.length === 0)}
+                  className="btn-primary px-8 py-2.5 rounded-xl text-[9px] font-black uppercase"
+                >
+                  NEXT STEP
+                </button>
              ) : (
                 <button onClick={handleSaveEvents} disabled={submitting} className="btn-success px-10 py-2.5 rounded-xl text-[9px] font-black uppercase flex items-center gap-2">
                    {submitting ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
