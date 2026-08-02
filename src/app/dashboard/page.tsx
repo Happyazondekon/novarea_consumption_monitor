@@ -253,10 +253,6 @@ export default function DashboardPage() {
                                     <span className="text-base font-black text-green-600">{stats?.eventSummary?.de || 0} DE</span>
                                 </div>
                              </div>
-                             <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/10 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/20">
-                                <Sparkles size={12} className="text-blue-600" />
-                                <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest">Standard Protocol Active</span>
-                             </div>
                         </div>
                     </>
                 )}

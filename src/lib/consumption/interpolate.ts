@@ -3,7 +3,7 @@ import { differenceInDays, addDays, startOfDay, isSameDay } from "date-fns";
 
 /**
  * Recalculates all consumption deltas for a specific category.
- * Ensures linear interpolation for missing reading days.
+ * Ensures linear interpolation for missing reading days and real-time updates for same-day entries.
  */
 export async function recalculateCategoryConsumption(category: string) {
   console.log(`[INTERPOLATE] Recalculating ${category} consumption...`);
@@ -32,12 +32,32 @@ export async function recalculateCategoryConsumption(category: string) {
 
     const totalDelta = curr.value - prev.value;
 
-    // Calculate calendar days difference (ignoring exact time of day for gap logic)
     const d1 = startOfDay(prev.timestamp);
     const d2 = startOfDay(curr.timestamp);
     const daysDiff = differenceInDays(d2, d1);
 
-    if (daysDiff === 1) {
+    if (daysDiff === 0) {
+        // SAME DAY: Multi-reading on the same day (Real-time update)
+        // We accumulate this delta into the current day's consumption record
+        const existingIndex = consumptionToCreate.findIndex(c => isSameDay(c.date, curr.timestamp));
+
+        if (existingIndex > -1) {
+            // Update the existing entry for today with the new delta
+            consumptionToCreate[existingIndex].currentValue = curr.value;
+            consumptionToCreate[existingIndex].consumption += Math.max(0, totalDelta);
+        } else {
+            // First calculated delta for today
+            consumptionToCreate.push({
+                date: curr.timestamp,
+                category,
+                previousValue: prev.value,
+                currentValue: curr.value,
+                consumption: Math.max(0, totalDelta),
+                source: "MEASURED",
+                readingId: curr.id
+            });
+        }
+    } else if (daysDiff === 1) {
       // Direct consecutive day: Measured
       consumptionToCreate.push({
         date: curr.timestamp,
@@ -52,7 +72,6 @@ export async function recalculateCategoryConsumption(category: string) {
       // Gap detected: Interpolated
       const dailyValue = totalDelta / daysDiff;
 
-      // Spread the delta across ALL days in the gap (from Day N+1 to current Day)
       for (let j = 1; j <= daysDiff; j++) {
         const targetDate = addDays(d1, j);
         const isLastDay = j === daysDiff;
@@ -60,14 +79,13 @@ export async function recalculateCategoryConsumption(category: string) {
         consumptionToCreate.push({
           date: isLastDay ? curr.timestamp : targetDate,
           category,
-          // Only show index values for the real reading day
           previousValue: isLastDay ? prev.value : null,
           currentValue: isLastDay ? curr.value : null,
           consumption: Math.max(0, dailyValue),
           source: "INTERPOLATED",
           gapStartDate: prev.timestamp,
           gapEndDate: curr.timestamp,
-          readingId: curr.id // All rows in this gap are linked to the reading that closed it
+          readingId: curr.id
         });
       }
     }

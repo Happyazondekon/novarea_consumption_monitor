@@ -15,7 +15,8 @@ import {
   MessageSquare,
   ArrowRight,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Swal from 'sweetalert2';
@@ -38,13 +39,18 @@ export default function InstructionsPage() {
   const fetchInstructions = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/instructions");
-      if (res.ok) setInstructions(await res.json());
+      const res = await fetch("/api/instructions", { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setInstructions(data);
+      }
 
       if (isAdmin) {
           const techRes = await fetch("/api/users?role=ELECTRICIEN");
           if (techRes.ok) setTechnicians(await techRes.json());
       }
+    } catch (err) {
+        console.error("Fetch failed", err);
     } finally {
       setLoading(false);
     }
@@ -62,18 +68,26 @@ export default function InstructionsPage() {
     }
     setSubmitting(true);
     try {
-      const promises = selectedTechIds.map(userId =>
-        fetch("/api/instructions", {
-            method: "POST",
-            body: JSON.stringify({ text: instructionText, userId })
-        })
-      );
-      await Promise.all(promises);
-      Swal.fire({ title: 'Success', text: 'Missions Dispatched', icon: 'success', timer: 1500, showConfirmButton: false });
-      setShowForm(false);
-      setInstructionText("");
-      setSelectedTechIds([]);
-      fetchInstructions();
+      const res = await fetch("/api/instructions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: instructionText,
+            userIds: selectedTechIds
+          })
+      });
+
+      if (res.ok) {
+          Swal.fire({ title: 'Success', text: 'Missions Dispatched', icon: 'success', timer: 1500, showConfirmButton: false });
+          setShowForm(false);
+          setInstructionText("");
+          setSelectedTechIds([]);
+          fetchInstructions();
+      } else {
+          throw new Error("Dispatch failed");
+      }
+    } catch (err) {
+        Swal.fire('Error', 'Could not broadcast instructions', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -81,11 +95,48 @@ export default function InstructionsPage() {
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'PENDING' ? 'DONE' : 'PENDING';
-    const res = await fetch(`/api/instructions/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: newStatus })
+    try {
+        const res = await fetch(`/api/instructions/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) {
+            fetchInstructions();
+            // Optional: Trigger a custom event for Topbar count refresh if needed
+            window.dispatchEvent(new Event('refreshNotifications'));
+        } else {
+            Swal.fire('Error', 'Update failed', 'error');
+        }
+    } catch (err) {
+        Swal.fire('Error', 'Connection error', 'error');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const result = await Swal.fire({
+      title: 'Remove Instruction?',
+      text: "This action cannot be undone.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444'
     });
-    if (res.ok) fetchInstructions();
+
+    if (result.isConfirmed) {
+      try {
+          const res = await fetch(`/api/instructions/${id}`, {
+              method: "DELETE"
+          });
+          if (res.ok) {
+            Swal.fire({ title: 'Deleted!', icon: 'success', timer: 1000, showConfirmButton: false });
+            fetchInstructions();
+          } else {
+            Swal.fire('Error', 'Delete failed', 'error');
+          }
+      } catch (err) {
+          Swal.fire('Error', 'Connection error', 'error');
+      }
+    }
   };
 
   const toggleTechId = (id: string) => {
@@ -93,8 +144,8 @@ export default function InstructionsPage() {
   };
 
   return (
-    <div className="w-full space-y-6 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left selection:bg-blue-500/30">
-      <div id="mission-header" className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-6 px-2">
+    <div className="w-full space-y-6 md:space-y-10 animate-fade-in py-4 lg:py-6 px-4 lg:px-6 text-left selection:bg-blue-500/30">
+      <div id="mission-header" className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6 px-2">
         <div>
           <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] mb-1">Mission Control</p>
           <h1 className="text-2xl lg:text-3xl font-black text-zinc-900 dark:text-white uppercase tracking-tighter leading-none">
@@ -146,11 +197,18 @@ export default function InstructionsPage() {
                             <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center", mission.status === 'DONE' ? "bg-green-50 text-green-600" : "bg-blue-50 text-blue-600")}>
                                 {mission.status === 'DONE' ? <ShieldCheck size={20} /> : <MessageSquare size={20} />}
                             </div>
-                            <span id={`status-${mission.id}`} className={cn("text-[7px] font-black uppercase px-2 py-0.5 rounded-full", mission.status === 'DONE' ? "bg-green-500 text-white" : "bg-orange-500 text-white animate-pulse")}>{mission.status}</span>
+                            <div className="flex items-center gap-2">
+                                <span id={`status-${mission.id}`} className={cn("text-[7px] font-black uppercase px-2 py-0.5 rounded-full", mission.status === 'DONE' ? "bg-green-500 text-white" : "bg-orange-500 text-white animate-pulse")}>{mission.status}</span>
+                                {isAdmin && (
+                                    <button onClick={() => handleDelete(mission.id)} className="p-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm">
+                                        <Trash2 size={12} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <p className="text-[11px] font-black text-zinc-900 dark:text-white uppercase leading-tight">{mission.text}</p>
-                            {isAdmin && <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mt-2 flex items-center gap-1.5"><Users size={8}/> Assigned: {mission.user.name}</p>}
+                            {isAdmin && <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mt-2 flex items-center gap-1.5"><Users size={8}/> Assigned: {mission.user?.name || "Unknown"}</p>}
                         </div>
                     </div>
 
@@ -174,7 +232,7 @@ export default function InstructionsPage() {
                 </div>
             ))}
 
-            {instructions.length === 0 && (
+            {instructions.length === 0 && !loading && (
                 <div className="col-span-full py-20 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-[3rem] opacity-30">
                     <ClipboardList size={48} className="mx-auto text-zinc-400 mb-4" />
                     <p className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Zero active missions detected</p>

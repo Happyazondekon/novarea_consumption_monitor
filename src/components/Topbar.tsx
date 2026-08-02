@@ -7,17 +7,39 @@ import { useSession } from "next-auth/react";
 import { Bell, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import Link from "next/link";
 
 export function Topbar() {
   const { data: session } = useSession();
   const user = session?.user as any;
 
   const [scrolled, setScrolled] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+
+  const fetchNotifications = async () => {
+      try {
+          const res = await fetch("/api/notifications/count");
+          if (res.ok) {
+              const data = await res.json();
+              setNotifCount(data.count);
+          }
+      } catch (err) {
+          console.error("Notif fetch failed");
+      }
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+
+    // Initial fetch and poll every 30s
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+
+    return () => {
+        window.removeEventListener("scroll", handleScroll);
+        clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -53,10 +75,17 @@ export function Topbar() {
       {/* RIGHT: ACTIONS */}
       <div className="flex items-center gap-2 md:gap-5">
         <div className="flex items-center gap-1 md:gap-2 mr-1 md:mr-4 border-r border-zinc-100 dark:border-zinc-800 pr-3 lg:pr-4">
-            <button className="p-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors relative">
+            <Link
+                href={user?.role === 'ADMINISTRATEUR' ? "/dashboard/reports" : "/dashboard/instructions"}
+                className="p-2 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors relative"
+            >
                 <Bell size={20} />
-                <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-zinc-900" />
-            </button>
+                {notifCount > 0 && (
+                    <div className="absolute top-1.5 right-1.5 min-w-[16px] h-4 bg-red-500 rounded-full border-2 border-white dark:border-zinc-900 flex items-center justify-center">
+                        <span className="text-[8px] font-black text-white px-0.5">{notifCount > 9 ? '9+' : notifCount}</span>
+                    </div>
+                )}
+            </Link>
             <ThemeToggle />
         </div>
 
