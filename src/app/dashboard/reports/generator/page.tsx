@@ -98,6 +98,7 @@ export default function ReportGeneratorPage() {
         const title = customTitle || `Industrial Consumption Report - ${resource}`;
         const timestamp = format(new Date(), 'dd/MM/yyyy HH:mm');
         const hasInterpolated = reportData.readings.some((r: any) => r.source === 'INTERPOLATED');
+        const periodLabel = reportData.periodInfo.label;
 
         const doc = new jsPDF('p', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -113,7 +114,7 @@ export default function ReportGeneratorPage() {
         doc.text("NOVAREA TEXTILES BENIN", margin, 25);
         doc.setFontSize(11);
         doc.setTextColor(107, 114, 128);
-        doc.text(title.toUpperCase(), margin, 35);
+        doc.text(`${resource} ANALYSIS • ${periodLabel.toUpperCase()}`, margin, 35);
 
         currentY = 60;
         doc.setFontSize(10);
@@ -162,7 +163,7 @@ export default function ReportGeneratorPage() {
         if (includeBadge) {
             doc.setFontSize(12);
             doc.setTextColor(31, 41, 55);
-            doc.text(`Period Average: ${reportData.referenceAverage} ${resource === 'POWER' ? 'kWh' : 'm³'}`, margin, currentY);
+            doc.text(`Period Average: ${reportData.referenceAverage.toFixed(2)} ${resource === 'POWER' ? 'kWh' : 'm³'}`, margin, currentY);
             currentY += 8;
             doc.text(`Summary: ${reportData.eventSummary.ie} Increase Events | ${reportData.eventSummary.de} Decrease Events`, margin, currentY);
             currentY += 15;
@@ -207,13 +208,19 @@ export default function ReportGeneratorPage() {
             if (currentY > 200) { doc.addPage(); currentY = 20; }
             doc.setFontSize(14);
             doc.setTextColor(31, 41, 55);
-            doc.text("Operational Events Dictionary", margin, currentY);
+            doc.text("Operational Events Details", margin, currentY);
             currentY += 8;
 
             autoTable(doc, {
                 startY: currentY,
-                head: [['Code', 'Description', 'Impact', 'Freq']],
-                body: reportData.eventTable.map((e: any) => [e.code, e.description, e.type, e.count]),
+                head: [['Date', 'Code', 'Description', 'Impact', 'Comment']],
+                body: reportData.eventLogs.map((e: any) => [
+                    format(new Date(e.date), 'dd/MM/yyyy'),
+                    e.code,
+                    e.description,
+                    e.type,
+                    e.comment || '-'
+                ]),
                 theme: 'striped',
                 headStyles: { fillColor: [229, 231, 235], textColor: [31, 41, 55], fontStyle: 'bold' },
                 styles: { fontSize: 8 }
@@ -270,7 +277,6 @@ export default function ReportGeneratorPage() {
 
   return (
     <div className="w-full space-y-6 animate-fade-in py-6 px-4 lg:px-6 text-left selection:bg-blue-500/30">
-      {/* HEADER WITH EXPORT ACTIONS ON SAME LINE */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-200 dark:border-zinc-800 pb-8 px-2">
         <div>
           <p className="text-blue-600 font-black uppercase tracking-[0.4em] text-[9px] mb-2">Intelligence Unit</p>
@@ -279,11 +285,10 @@ export default function ReportGeneratorPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
-            {/* EXPORT BUTTONS MOVED HERE */}
             <button
                 disabled={!validateSelection() || exporting === 'pdf' || loading}
                 onClick={() => handleExport("pdf")}
-                className="flex-1 md:flex-initial btn-primary px-6 py-3 rounded-xl flex items-center justify-center gap-3 shadow-xl shadow-blue-500/10 text-[10px] font-black uppercase tracking-widest"
+                className="flex-1 md:flex-initial btn-primary px-6 py-3 rounded-xl flex items-center justify-center gap-3 shadow-xl shadow-blue-500/20 text-[10px] font-black uppercase tracking-widest"
             >
                 {exporting === 'pdf' ? <Loader2 className="animate-spin" size={16}/> : <FileText size={16}/>}
                 EXPORT PDF
@@ -385,7 +390,7 @@ export default function ReportGeneratorPage() {
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }} dy={12} />
                                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }} />
                                             <Tooltip content={<CustomTooltip theme={{ isDark }} />} />
-                                            <ReferenceLine y={reportData.referenceAverage} stroke={INDUSTRIAL_COLORS.REFERENCE_LINE} strokeDasharray="5 5" strokeWidth={2} label={{ position: 'right', value: `AVG: ${reportData.referenceAverage}`, fill: INDUSTRIAL_COLORS.REFERENCE_LINE, fontSize: 8, fontWeight: 900 }} />
+                                            <ReferenceLine y={reportData.referenceAverage} stroke={INDUSTRIAL_COLORS.REFERENCE_LINE} strokeDasharray="5 5" strokeWidth={2} label={{ position: 'right', value: `AVG: ${reportData.referenceAverage.toFixed(2)}`, fill: INDUSTRIAL_COLORS.REFERENCE_LINE, fontSize: 8, fontWeight: 900 }} />
                                             <Bar dataKey="consumption" fill={resource === 'POWER' ? INDUSTRIAL_COLORS.POWER : INDUSTRIAL_COLORS.WATER} radius={[4, 4, 0, 0]} barSize={aggregation === 'MONTH' ? 40 : 15}>
                                                 { (reportData.chartData || []).map((entry: any, index: number) => (
                                                     <Cell key={`cell-${index}`} fillOpacity={entry.source === 'INTERPOLATED' ? 0.4 : 1} stroke={entry.source === 'INTERPOLATED' ? (resource === 'POWER' ? INDUSTRIAL_COLORS.POWER : INDUSTRIAL_COLORS.WATER) : 'none'} strokeDasharray={entry.source === 'INTERPOLATED' ? "4 4" : "0"} />
@@ -414,8 +419,8 @@ export default function ReportGeneratorPage() {
                                  )}
                                  {includeEventLog && (
                                     <div className="p-6 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                                        <div className="flex items-center gap-2 mb-4"><Activity size={12} className="text-red-500" /><h5 className="font-black uppercase tracking-widest text-zinc-900 dark:text-white">Event Dictionary</h5></div>
-                                        <p className="text-zinc-400 font-bold uppercase text-[8px] italic">{reportData.eventTable.length} active codes</p>
+                                        <div className="flex items-center gap-2 mb-4"><Activity size={12} className="text-red-500" /><h5 className="font-black uppercase tracking-widest text-zinc-900 dark:text-white">Event Log</h5></div>
+                                        <p className="text-zinc-400 font-bold uppercase text-[8px] italic">{reportData.eventLogs.length} active context entries</p>
                                     </div>
                                  )}
                             </div>

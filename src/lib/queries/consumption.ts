@@ -6,10 +6,32 @@ import {
   isSameMonth, eachWeekOfInterval, isSameWeek
 } from "date-fns";
 
-export async function getKPICards(resource: string = "POWER", targetDate: Date = new Date()) {
-  const start = startOfDay(targetDate);
-  const end = endOfDay(targetDate);
+export async function getKPICards(
+    resource: string = "POWER",
+    targetDate: Date = new Date(),
+    period: "WEEK" | "MONTH" | "YEAR" | "CUSTOM" = "WEEK",
+    customStart?: Date,
+    customEnd?: Date
+) {
+  // 1. Define the temporal window based on selected period
+  let start: Date;
+  let end: Date;
 
+  if (period === "WEEK") {
+    start = startOfWeek(targetDate, { weekStartsOn: 1 });
+    end = endOfWeek(targetDate, { weekStartsOn: 1 });
+  } else if (period === "MONTH") {
+    start = startOfMonth(targetDate);
+    end = endOfMonth(targetDate);
+  } else if (period === "YEAR") {
+    start = startOfYear(targetDate);
+    end = endOfYear(targetDate);
+  } else {
+    start = startOfDay(customStart || subDays(new Date(), 7));
+    end = endOfDay(customEnd || new Date());
+  }
+
+  // 2. LAST READING (Global - Physical state)
   const lastReadingRaw = await prisma.meterReading.findFirst({
     where: { category: resource, isDeleted: false },
     orderBy: { timestamp: 'desc' },
@@ -17,36 +39,33 @@ export async function getKPICards(resource: string = "POWER", targetDate: Date =
   });
   const lastReading = lastReadingRaw?.value || 0;
 
-  const usageToday = await prisma.consumption.aggregate({
+  // 3. PERIOD CONSUMPTION (Sum of deltas in selected range)
+  const usagePeriod = await prisma.consumption.aggregate({
     where: { category: resource, date: { gte: start, lte: end } },
     _sum: { consumption: true }
   });
 
-  const eventsToday = await prisma.dailyEvent.count({
+  // 4. PERIOD EVENTS (Count of anomalies in selected range)
+  const eventsPeriod = await prisma.dailyEvent.count({
     where: {
         date: { gte: start, lte: end },
         eventType: { category: { in: [resource, "BOTH"] } }
     }
   });
 
-  const thirtyDaysAgo = subDays(start, 30);
-  const totalConsumption30 = await prisma.consumption.aggregate({
-    where: { category: resource, date: { gte: thirtyDaysAgo, lte: end } },
-    _sum: { consumption: true }
-  });
-
+  // 5. PERIOD AVERAGE (Total for period / Count of days with data in period)
   const daysWithDataRaw = await prisma.consumption.findMany({
-    where: { category: resource, date: { gte: thirtyDaysAgo, lte: end } },
+    where: { category: resource, date: { gte: start, lte: end } },
     select: { date: true }
   });
 
   const distinctDays = new Set(daysWithDataRaw.map(d => format(d.date, 'yyyy-MM-dd'))).size;
-  const avg = distinctDays > 0 ? (totalConsumption30._sum.consumption || 0) / distinctDays : 0;
+  const avg = distinctDays > 0 ? (usagePeriod._sum.consumption || 0) / distinctDays : 0;
 
   return {
     lastReading: lastReading.toFixed(2),
-    usageToday: (usageToday._sum.consumption || 0).toFixed(2),
-    eventsToday,
+    usageToday: (usagePeriod._sum.consumption || 0).toFixed(2),
+    eventsToday: eventsPeriod,
     dailyAverage: avg.toFixed(2)
   };
 }
@@ -184,24 +203,25 @@ export async function getReportData(
         orderBy: { date: 'asc' }
     });
 
-    const eventStats = await prisma.eventType.findMany({
+    const eventLogs = await prisma.dailyEvent.findMany({
         where: {
-            dailyEvents: { some: { date: { gte: startDate, lte: endDate }, eventType: { category: { in: [resource, "BOTH"] } } } }
+            date: { gte: startDate, lte: endDate },
+            eventType: { category: { in: [resource, "BOTH"] } }
         },
-        include: {
-            _count: { select: { dailyEvents: { where: { date: { gte: startDate, lte: endDate } } } } }
-        }
+        include: { eventType: true },
+        orderBy: { date: 'asc' }
     });
 
     return {
         ...charts,
         readings,
-        eventTable: eventStats.map(e => ({
-            code: e.code,
-            description: e.description,
-            type: e.type,
-            count: (e as any)._count.dailyEvents
-        })).sort((a, b) => b.count - a.count),
+        eventLogs: eventLogs.map(e => ({
+            date: e.date,
+            code: e.eventType.code,
+            description: e.eventType.description,
+            type: e.eventType.type,
+            comment: e.comment
+        })),
         periodInfo: {
             start: startDate,
             end: endDate,
