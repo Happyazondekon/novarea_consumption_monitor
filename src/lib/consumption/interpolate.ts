@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { differenceInDays, addDays, startOfDay, isSameDay } from "date-fns";
+import { differenceInDays, addDays, startOfDay, isSameDay, setHours } from "date-fns";
 
 /**
  * Recalculates all consumption deltas for a specific category.
@@ -42,17 +42,15 @@ export async function recalculateCategoryConsumption(category: string) {
     const deltaValue = curr.value - prev.value;
 
     if (daysDiff === 0) {
-        // SAME DAY: Real consumption happened DURING this day
+        // SAME DAY: Multi-reading
         const existingIndex = consumptionToCreate.findIndex(c => isSameDay(c.date, curr.timestamp));
 
         if (existingIndex > -1) {
-            // Update today's usage (Second reading vs first reading of the same day)
             consumptionToCreate[existingIndex].currentValue = curr.value;
             consumptionToCreate[existingIndex].consumption += Math.max(0, deltaValue);
             consumptionToCreate[existingIndex].source = "MEASURED";
             consumptionToCreate[existingIndex].readingId = curr.id;
         } else {
-            // First time we calculate usage for "today" (happens on multi-reading)
             consumptionToCreate.push({
                 date: curr.timestamp,
                 category,
@@ -64,40 +62,32 @@ export async function recalculateCategoryConsumption(category: string) {
             });
         }
     } else {
-        // GAP DETECTED (daysDiff >= 1)
-        // Everything consumed between previous reading and current opening index
-        // belongs to the PREVIOUS days (ghost days).
-
-        // Example: Saturday evening to Monday morning.
-        // daysDiff = 2 (Sunday, Monday).
-        // Total Delta / daysDiff.
-        // But Rule: Monday (Current day) must start at 0.
-        // So we distribute the delta ONLY on Sunday (and Saturday night if needed).
-
+        // GAP DETECTED
         const missingDaysCount = daysDiff;
         const dailyInterpolatedValue = deltaValue / missingDaysCount;
 
         for (let j = 1; j <= missingDaysCount; j++) {
-            const targetDate = addDays(d1, j);
+            const rawTargetDate = addDays(d1, j);
             const isToday = j === missingDaysCount;
 
             if (isToday) {
-                // CURRENT DAY: This is the OPENING reading.
-                // Consumption for "Today" is 0 until a second reading arrives.
-                // We create a skeleton entry to mark the opening index.
+                // CURRENT DAY: Opening index (Start at 0)
                 consumptionToCreate.push({
                     date: curr.timestamp,
                     category,
-                    previousValue: curr.value, // It's our anchor
+                    previousValue: curr.value,
                     currentValue: curr.value,
                     consumption: 0,
                     source: "MEASURED",
                     readingId: curr.id
                 });
             } else {
-                // GHOST DAY: Distribute the "inter-day" consumption here
+                // GHOST DAY: Distribute consumption here
+                // FIXED: We force Noon (12:00) to prevent Timezone shift to previous day
+                const safeTargetDate = setHours(startOfDay(rawTargetDate), 12);
+
                 consumptionToCreate.push({
-                    date: targetDate,
+                    date: safeTargetDate,
                     category,
                     previousValue: null,
                     currentValue: null,
@@ -112,13 +102,11 @@ export async function recalculateCategoryConsumption(category: string) {
     }
   }
 
-  // 4. Batch create
+  // 4. Batch create with de-duplication
   if (consumptionToCreate.length > 0) {
-    // Filter out potential duplicates for the same day (keep the most updated one)
     const finalData: any[] = [];
     const seenDates = new Set();
 
-    // Process backwards to keep latest state for each day
     for (let i = consumptionToCreate.length - 1; i >= 0; i--) {
         const item = consumptionToCreate[i];
         const dateKey = startOfDay(item.date).getTime();
@@ -133,5 +121,5 @@ export async function recalculateCategoryConsumption(category: string) {
     });
   }
 
-  console.log(`[INTERPOLATE] Finished. Created ${consumptionToCreate.length} entries.`);
+  console.log(`[INTERPOLATE] Finished. Created ${consumptionToCreate.length} records.`);
 }
