@@ -136,6 +136,7 @@ export default function UsersPage() {
                 <div className="space-y-6">
                     <div className="space-y-1.5"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Full Name</label><input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-4 px-6 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all text-zinc-900 dark:text-white" /></div>
                     <div className="space-y-1.5"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">System Identifier</label><input required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-4 px-6 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all text-zinc-900 dark:text-white" /></div>
+                    {/* Fixed/Enabled: Corporate Email field is now active and editable for all roles */}
                     <div className="space-y-1.5"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Corporate Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-2xl py-4 px-6 text-sm font-bold focus:ring-4 focus:ring-blue-600/5 transition-all text-zinc-900 dark:text-white" /></div>
                 </div>
                 <div className="space-y-6">
