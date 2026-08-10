@@ -112,6 +112,14 @@ export default function DashboardPage() {
     }
   }, [status, isAdmin, activeResource, activePeriod, customStart, customEnd, activeAggregation]);
 
+  // Dynamic label for Baseline Average
+  const getAverageLabel = () => {
+      if (activePeriod === 'WEEK') return "Weekly Average";
+      if (activePeriod === 'MONTH') return "Monthly Average";
+      if (activePeriod === 'YEAR') return "Annual Average";
+      return "Period Average";
+  };
+
   if (status === "loading") return (
     <div className="h-full flex items-center justify-center py-20">
       <Loader2 className="animate-spin text-blue-600" size={40} />
@@ -191,10 +199,43 @@ export default function DashboardPage() {
       </div>
 
       <div id="kpi-grid" className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 px-4 md:px-2">
-        <KPICard title="Last Reading" value={stats?.lastReading || "0.00"} unit={activeResource === 'POWER' ? 'kWh' : 'm³'} sub="Current Index" icon={Hash} color={activeResource === 'POWER' ? 'blue' : 'cyan'} loading={loading} />
-        <KPICard title={activeResource === 'POWER' ? 'Electricity Usage' : 'Water Usage'} value={stats?.usageToday || "0.00"} unit={activeResource === 'POWER' ? 'kWh' : 'm³'} sub="Total for Period" icon={activeResource === 'POWER' ? Zap : Droplets} color={activeResource === 'POWER' ? 'blue' : 'cyan'} loading={loading} />
-        <KPICard title="Active Events" value={stats?.eventsToday || "0"} unit="Notes" sub="Operational Context" icon={Activity} color="purple" loading={loading} />
-        <KPICard title="Baseline Average" value={stats?.dailyAverage || "0.00"} unit={activeResource === 'POWER' ? 'kWh/d' : 'm³/d'} sub="30-Day Verified" icon={TrendingUp} color="green" loading={loading} />
+        <KPICard
+            title="Last Reading"
+            value={stats?.lastReading || "0.00"}
+            unit={activeResource === 'POWER' ? 'kWh' : 'm³'}
+            sub="Current Index"
+            icon={Hash}
+            color={activeResource === 'POWER' ? 'blue' : 'cyan'}
+            loading={loading}
+        />
+        <KPICard
+            title={activeResource === 'POWER' ? 'Electricity Usage' : 'Water Usage'}
+            value={stats?.usageToday || "0.00"}
+            unit={activeResource === 'POWER' ? 'kWh' : 'm³'}
+            sub={stats?.isPredictive ? "Estimated" : "Total for Period"}
+            icon={activeResource === 'POWER' ? Zap : Droplets}
+            color={activeResource === 'POWER' ? 'blue' : 'cyan'}
+            loading={loading}
+            isPredictive={stats?.isPredictive}
+        />
+        <KPICard
+            title="Active Events"
+            value={stats?.eventsToday || "0"}
+            unit="Notes"
+            sub="Operational Context"
+            icon={Activity}
+            color="purple"
+            loading={loading}
+        />
+        <KPICard
+            title="Baseline Average"
+            value={stats?.dailyAverage || "0.00"}
+            unit={activeResource === 'POWER' ? 'kWh/d' : 'm³/d'}
+            sub={getAverageLabel()}
+            icon={TrendingUp}
+            color="green"
+            loading={loading}
+        />
       </div>
 
       <div className="px-4 md:px-2">
@@ -272,7 +313,7 @@ function ResourceBtn({ active, onClick, label, icon: Icon, color }: any) {
     );
 }
 
-function KPICard({ title, value, unit, sub, icon: Icon, color, loading }: any) {
+function KPICard({ title, value, unit, sub, icon: Icon, color, loading, isPredictive }: any) {
     const colors: any = { blue: "text-blue-600 bg-blue-50/50 dark:bg-blue-900/10", cyan: "text-cyan-600 bg-cyan-50/50 dark:bg-cyan-900/10", purple: "text-purple-600 bg-purple-50/50 dark:bg-purple-900/10", green: "text-green-600 bg-green-50/50 dark:bg-green-900/10" };
     return (
         <Card className="apple-card p-5 md:p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-none shadow-sm flex flex-col justify-between hover:shadow-md transition-all h-full">
@@ -284,8 +325,13 @@ function KPICard({ title, value, unit, sub, icon: Icon, color, loading }: any) {
             </div>
             <div>
                 <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-2">{title}</p>
-                {loading ? <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" /> : <h3 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase truncate">{value} <span className="text-xs md:text-sm text-zinc-400 ml-1 font-bold">{unit}</span></h3>}
-                <p className="text-[10px] font-bold text-zinc-400 uppercase mt-3 tracking-widest opacity-60 truncate">{sub}</p>
+                {loading ? <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" /> : (
+                    <h3 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase truncate">
+                        {isPredictive && <span className="text-blue-500 mr-1">≈</span>}
+                        {value} <span className="text-xs md:text-sm text-zinc-400 ml-1 font-bold">{unit}</span>
+                    </h3>
+                )}
+                <p className={cn("text-[10px] font-bold uppercase mt-3 tracking-widest opacity-60 truncate", isPredictive ? "text-blue-500" : "text-zinc-400")}>{sub}</p>
             </div>
         </Card>
     );
@@ -302,7 +348,7 @@ const CustomTooltip = ({ active, payload, label, theme }: any) => {
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Usage</span>
                 <span className={cn("text-sm font-black", theme.isDark ? "text-white" : "text-zinc-900")}>{payload[0].value.toFixed(2)}{data.source === 'INTERPOLATED' ? '*' : ''}</span>
             </div>
-            {data.source === 'INTERPOLATED' && (
+            {data.source === 'INTERPOLATED' && data.gapStart && data.gapEnd && (
                 <div className="bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
                     <p className="text-[8px] font-black text-blue-500 uppercase flex items-center gap-1.5"><Sparkles size={8}/> Estimated Value</p>
                     <p className="text-[7px] font-bold text-zinc-400 mt-1 leading-tight">No reading captured this day. Gap distributed between {format(new Date(data.gapStart), 'dd MMM')} and {format(new Date(data.gapEnd), 'dd MMM')}.</p>

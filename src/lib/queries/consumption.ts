@@ -6,6 +6,27 @@ import {
   isSameMonth, eachWeekOfInterval, isSameWeek
 } from "date-fns";
 
+/**
+ * Calculates a fixed 30-day historical average to serve as a reliable estimation baseline.
+ */
+async function getHistoric30DayAverage(category: string) {
+  const thirtyDaysAgo = subDays(new Date(), 30);
+  const now = endOfDay(new Date());
+
+  const agg = await prisma.consumption.aggregate({
+    where: { category, date: { gte: thirtyDaysAgo, lte: now } },
+    _sum: { consumption: true }
+  });
+
+  const daysRaw = await prisma.consumption.findMany({
+    where: { category, date: { gte: thirtyDaysAgo, lte: now } },
+    select: { date: true }
+  });
+
+  const distinctCount = new Set(daysRaw.map(d => format(d.date, 'yyyy-MM-dd'))).size;
+  return distinctCount > 0 ? (agg._sum.consumption || 0) / distinctCount : 0;
+}
+
 export async function getKPICards(
     resource: string = "POWER",
     targetDate: Date = new Date(),
@@ -13,7 +34,6 @@ export async function getKPICards(
     customStart?: Date,
     customEnd?: Date
 ) {
-  // 1. Define the temporal window based on selected period
   let start: Date;
   let end: Date;
 
@@ -31,7 +51,6 @@ export async function getKPICards(
     end = endOfDay(customEnd || new Date());
   }
 
-  // 2. LAST READING (Global - Physical state)
   const lastReadingRaw = await prisma.meterReading.findFirst({
     where: { category: resource, isDeleted: false },
     orderBy: { timestamp: 'desc' },
@@ -39,13 +58,39 @@ export async function getKPICards(
   });
   const lastReading = lastReadingRaw?.value || 0;
 
-  // 3. PERIOD CONSUMPTION (Sum of deltas in selected range)
-  const usagePeriod = await prisma.consumption.aggregate({
+  const usagePeriodAgg = await prisma.consumption.aggregate({
     where: { category: resource, date: { gte: start, lte: end } },
     _sum: { consumption: true }
   });
+  let totalConsumption = usagePeriodAgg._sum.consumption || 0;
 
-  // 4. PERIOD EVENTS (Count of anomalies in selected range)
+  const daysWithDataRaw = await prisma.consumption.findMany({
+    where: { category: resource, date: { gte: start, lte: end } },
+    select: { date: true }
+  });
+  const distinctDays = new Set(daysWithDataRaw.map(d => format(d.date, 'yyyy-MM-dd'))).size;
+  const avg = distinctDays > 0 ? (usagePeriodAgg._sum.consumption || 0) / distinctDays : 0;
+
+  const historicAvg = await getHistoric30DayAverage(resource);
+  const todayStart = startOfDay(new Date());
+  const todayEnd = endOfDay(new Date());
+  let isPredictive = false;
+
+  const todayCons = await prisma.consumption.findFirst({
+      where: { category: resource, date: { gte: todayStart, lte: todayEnd } }
+  });
+
+  if ((!todayCons || todayCons.consumption === 0) && (todayStart >= start && todayStart <= end)) {
+      const readingCountToday = await prisma.meterReading.count({
+          where: { category: resource, timestamp: { gte: todayStart, lte: todayEnd }, isDeleted: false }
+      });
+
+      if (readingCountToday === 1) {
+          totalConsumption += historicAvg;
+          isPredictive = true;
+      }
+  }
+
   const eventsPeriod = await prisma.dailyEvent.count({
     where: {
         date: { gte: start, lte: end },
@@ -53,20 +98,12 @@ export async function getKPICards(
     }
   });
 
-  // 5. PERIOD AVERAGE (Total for period / Count of days with data in period)
-  const daysWithDataRaw = await prisma.consumption.findMany({
-    where: { category: resource, date: { gte: start, lte: end } },
-    select: { date: true }
-  });
-
-  const distinctDays = new Set(daysWithDataRaw.map(d => format(d.date, 'yyyy-MM-dd'))).size;
-  const avg = distinctDays > 0 ? (usagePeriod._sum.consumption || 0) / distinctDays : 0;
-
   return {
     lastReading: lastReading.toFixed(2),
-    usageToday: (usagePeriod._sum.consumption || 0).toFixed(2),
+    usageToday: totalConsumption.toFixed(2),
     eventsToday: eventsPeriod,
-    dailyAverage: avg.toFixed(2)
+    dailyAverage: avg.toFixed(2),
+    isPredictive
   };
 }
 
@@ -116,6 +153,10 @@ export async function getChartData(
     include: { eventType: true }
   });
 
+  const historicAvg = await getHistoric30DayAverage(resource);
+  const todayStart = startOfDay(new Date());
+  const todayEnd = endOfDay(new Date());
+
   let totalConsumptionInPeriod = 0;
   let bucketsWithDataCount = 0;
 
@@ -126,9 +167,22 @@ export async function getChartData(
         return isSameMonth(c.date, bucketDate);
     });
 
-    const bucketConsump = bucketCons.reduce((sum, c) => sum + c.consumption, 0);
+    let bucketConsump = bucketCons.reduce((sum, c) => sum + c.consumption, 0);
+    let hasInterpolated = bucketCons.some(c => c.source === "INTERPOLATED");
+    let gapExample = bucketCons.find(c => c.source === "INTERPOLATED");
 
-    // Anomaly logic
+    // NEW: Predictive bar for today in chart
+    if (aggregation === "DAY" && isSameDay(bucketDate, todayStart) && bucketConsump === 0) {
+        // Find if we have at least one reading today to trigger prediction
+        // (Note: This is a synchronous filter but reading check is async, we use the fact that
+        // if bucketConsump is 0 but an entry exists with consumption 0, it was the first reading)
+        const hasOpeningReading = bucketCons.length > 0;
+        if (hasOpeningReading) {
+            bucketConsump = historicAvg;
+            hasInterpolated = true; // Use the dotted style for predicted bars
+        }
+    }
+
     const bucketEventsList = events.filter(e => {
         if (aggregation === "DAY") return isSameDay(e.date, bucketDate);
         if (aggregation === "WEEK") return isSameWeek(e.date, bucketDate, { weekStartsOn: 1 });
@@ -137,10 +191,6 @@ export async function getChartData(
 
     const bucketEventCount = bucketEventsList.length;
     const bucketEventCodes = Array.from(new Set(bucketEventsList.map(e => e.eventType.code)));
-
-    // Interpolation Metadata
-    const hasInterpolated = bucketCons.some(c => c.source === "INTERPOLATED");
-    const gapExample = bucketCons.find(c => c.source === "INTERPOLATED");
 
     if (bucketConsump > 0) {
         totalConsumptionInPeriod += bucketConsump;
