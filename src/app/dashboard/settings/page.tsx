@@ -75,11 +75,15 @@ export default function SettingsPage() {
   };
 
   const checkPushSubscription = async () => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
       setIsPushSupported(true);
-      const registration = await navigator.serviceWorker.ready;
-      const sub = await registration.pushManager.getSubscription();
-      setIsSubscribed(!!sub);
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const sub = await registration.pushManager.getSubscription();
+        setIsSubscribed(!!sub);
+      } catch (e) {
+        console.warn("SW not ready yet");
+      }
     }
   };
 
@@ -167,7 +171,6 @@ export default function SettingsPage() {
         const sub = await registration.pushManager.getSubscription();
         if (sub) {
           await sub.unsubscribe();
-          // Notify server
           await fetch('/api/notifications/register', {
             method: 'POST',
             body: JSON.stringify(null),
@@ -177,8 +180,24 @@ export default function SettingsPage() {
         setIsSubscribed(false);
         Swal.fire({ title: 'Deactivated', text: 'You will no longer receive push alerts on this device.', icon: 'info', timer: 1500 });
       } else {
-        // Subscribe
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        // SUBSCRIBE LOGIC
+        // 1. Force register SW first
+        const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+        // 2. Wait for SW to be active
+        let sw = registration.active || registration.waiting || registration.installing;
+        if (!registration.active) {
+            console.log("Waiting for service worker to activate...");
+            await new Promise<void>((resolve) => {
+                const check = () => {
+                    if (registration.active) resolve();
+                    else setTimeout(check, 100);
+                };
+                check();
+            });
+        }
+
+        // 3. Now subscribe
         const sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
@@ -193,9 +212,13 @@ export default function SettingsPage() {
         setIsSubscribed(true);
         Swal.fire({ title: 'Activated!', text: 'Device registered for industrial alerts.', icon: 'success', timer: 1500 });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      Swal.fire('Push Error', 'Could not configure notifications. Check browser permissions.', 'error');
+      if (err.name === 'NotAllowedError') {
+          Swal.fire('Permission Denied', 'Please enable notifications in your browser settings for this site.', 'warning');
+      } else {
+          Swal.fire('Configuration Error', 'Could not sync with device background worker. Please refresh and try again.', 'error');
+      }
     } finally {
       setPushLoading(false);
     }
@@ -328,6 +351,7 @@ export default function SettingsPage() {
                         </button>
 
                         {!isPushSupported && <p className="text-[8px] text-red-400 font-bold text-center">Web Push not supported on this browser</p>}
+                        <p className="text-[7px] text-zinc-400 uppercase text-center italic">Tip: If activation fails, please refresh the page to wake up the system worker.</p>
                     </div>
                 </Card>
             </div>
