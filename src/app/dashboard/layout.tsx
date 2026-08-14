@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
 import { TutorialProvider } from "@/components/TutorialProvider";
+import { PushNotificationManager } from "@/components/PushNotificationManager";
 
 export default async function DashboardLayout({
   children,
@@ -32,6 +33,9 @@ export default async function DashboardLayout({
                 {/* Fixed: Primary Mobile Navigation Hub */}
                 <BottomNav />
             </div>
+
+            {/* NEW: Native Web Push System */}
+            <PushNotificationManager />
         </div>
     </TutorialProvider>
   );

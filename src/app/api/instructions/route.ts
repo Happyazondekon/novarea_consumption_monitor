@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import webpush from "web-push";
 
 export const dynamic = "force-dynamic";
+
+// Configure Web Push
+webpush.setVapidDetails(
+  'mailto:wins.azondekon@gmail.com',
+  "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8",
+  "N_jV_EJTkQm7tRIrRkVNRmNPpDy_8Lq6E7EG6hWewL8"
+);
 
 export async function GET() {
   const session = await auth();
@@ -34,6 +42,26 @@ export async function GET() {
   }
 }
 
+async function sendNotification(userId: string, title: string, body: string, url: string) {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { pushSubscription: true }
+        });
+
+        if (user?.pushSubscription) {
+            const sub = user.pushSubscription as any;
+            await webpush.sendNotification(sub, JSON.stringify({
+                title,
+                body,
+                url
+            }));
+        }
+    } catch (err) {
+        console.error("Web Push failed for user:", userId, err);
+    }
+}
+
 export async function POST(req: Request) {
   const session = await auth();
   if ((session?.user as any)?.role !== 'ADMINISTRATEUR')
@@ -41,6 +69,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
+    const adminName = (session?.user as any)?.name || "The Administration";
 
     if (body.userIds && Array.isArray(body.userIds)) {
         const data = body.userIds.map((uid: string) => ({
@@ -49,6 +78,16 @@ export async function POST(req: Request) {
             status: 'PENDING'
         }));
         await prisma.instruction.createMany({ data });
+
+        // Notify each target user
+        for (const uid of body.userIds) {
+            await sendNotification(
+                uid,
+                "New Operational Directive",
+                `${adminName}: ${body.text}`,
+                "/dashboard/instructions"
+            );
+        }
     } else if (body.userId) {
         await prisma.instruction.create({
             data: {
@@ -57,6 +96,12 @@ export async function POST(req: Request) {
                 status: 'PENDING'
             }
         });
+        await sendNotification(
+            body.userId,
+            "New Operational Directive",
+            `${adminName}: ${body.text}`,
+            "/dashboard/instructions"
+        );
     } else {
         return NextResponse.json({ error: "Missing targets" }, { status: 400 });
     }
