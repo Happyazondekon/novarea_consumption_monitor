@@ -6,10 +6,12 @@ import { Card } from "@/components/ui/Card";
 import {
   User, Mail, Phone, Shield, Camera,
   Lock, CheckCircle2, ChevronRight, Info, Loader2, Eye, EyeOff, Save,
-  Users, Plus, Pencil, Search, XCircle, ArrowLeft, Zap, ShieldCheck, Fingerprint
+  Users, Plus, Pencil, Search, XCircle, ArrowLeft, Zap, ShieldCheck, Fingerprint, Bell, BellOff, Smartphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Swal from 'sweetalert2';
+
+const PUBLIC_VAPID_KEY = "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8";
 
 export default function SettingsPage() {
   const { data: session, update } = useSession();
@@ -31,6 +33,11 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Push State
+  const [isPushSupported, setIsPushSupported] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
 
   // Team Management State
   const [users, setUsers] = useState<any[]>([]);
@@ -67,6 +74,15 @@ export default function SettingsPage() {
     }
   };
 
+  const checkPushSubscription = async () => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      setIsPushSupported(true);
+      const registration = await navigator.serviceWorker.ready;
+      const sub = await registration.pushManager.getSubscription();
+      setIsSubscribed(!!sub);
+    }
+  };
+
   const fetchAllUsers = async () => {
     if (!isAdmin) return;
     setLoadingUsers(true);
@@ -80,6 +96,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchUserData();
+    checkPushSubscription();
     if (isAdmin) fetchAllUsers();
   }, [isAdmin]);
 
@@ -138,6 +155,49 @@ export default function SettingsPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTogglePush = async () => {
+    setPushLoading(true);
+    try {
+      if (isSubscribed) {
+        // Unsubscribe
+        const registration = await navigator.serviceWorker.ready;
+        const sub = await registration.pushManager.getSubscription();
+        if (sub) {
+          await sub.unsubscribe();
+          // Notify server
+          await fetch('/api/notifications/register', {
+            method: 'POST',
+            body: JSON.stringify(null),
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        setIsSubscribed(false);
+        Swal.fire({ title: 'Deactivated', text: 'You will no longer receive push alerts on this device.', icon: 'info', timer: 1500 });
+      } else {
+        // Subscribe
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        const sub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+        });
+
+        await fetch('/api/notifications/register', {
+          method: 'POST',
+          body: JSON.stringify(sub),
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        setIsSubscribed(true);
+        Swal.fire({ title: 'Activated!', text: 'Device registered for industrial alerts.', icon: 'success', timer: 1500 });
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Push Error', 'Could not configure notifications. Check browser permissions.', 'error');
+    } finally {
+      setPushLoading(false);
     }
   };
 
@@ -213,7 +273,7 @@ export default function SettingsPage() {
       </div>
 
       {activeTab === "PROFILE" ? (
-        <form onSubmit={handleUpdateProfile} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 px-2 pb-20 lg:pb-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 px-2 pb-20 lg:pb-0">
             <div className="space-y-6">
                 <Card className="apple-card flex flex-col items-center text-center py-8 bg-white dark:bg-zinc-900 border-none shadow-sm">
                     <div className="relative group">
@@ -231,38 +291,79 @@ export default function SettingsPage() {
                         <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-lg"><span className="text-[7px] font-black text-zinc-400 uppercase">System ID</span><span className="text-[9px] font-black text-blue-600 uppercase">@{username}</span></div>
                     </div>
                 </Card>
+
+                {/* MANUAL NOTIFICATION HUB */}
+                <Card className="apple-card p-6 bg-white dark:bg-zinc-900 border-none shadow-sm space-y-6">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600"><Bell size={20} /></div>
+                        <div>
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-900 dark:text-white leading-none">Alert Center</h4>
+                            <p className="text-[8px] font-bold text-zinc-400 uppercase mt-1">Real-time Push notifications</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800">
+                            <div className="flex items-center gap-3">
+                                <Smartphone size={16} className="text-zinc-400" />
+                                <span className="text-[9px] font-black uppercase text-zinc-600 dark:text-zinc-300">Device Status</span>
+                            </div>
+                            <span className={cn("text-[8px] font-black uppercase px-2 py-1 rounded-md", isSubscribed ? "bg-green-50 text-green-600" : "bg-zinc-200 text-zinc-500")}>
+                                {isSubscribed ? "Connected" : "Inactive"}
+                            </span>
+                        </div>
+
+                        <button
+                            disabled={pushLoading || !isPushSupported}
+                            onClick={handleTogglePush}
+                            className={cn(
+                                "w-full py-4 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase transition-all shadow-lg",
+                                isSubscribed
+                                    ? "bg-red-50 text-red-500 hover:bg-red-100 shadow-red-500/5"
+                                    : "bg-blue-600 text-white hover:scale-[1.02] shadow-blue-600/10"
+                            )}
+                        >
+                            {pushLoading ? <Loader2 className="animate-spin" size={16} /> : isSubscribed ? <BellOff size={16} /> : <Bell size={16} />}
+                            {isSubscribed ? "Disable Notifications" : "Enable Push Alerts"}
+                        </button>
+
+                        {!isPushSupported && <p className="text-[8px] text-red-400 font-bold text-center">Web Push not supported on this browser</p>}
+                    </div>
+                </Card>
             </div>
 
             <div className="lg:col-span-2 space-y-6">
-                <Card className="apple-card space-y-6 bg-white dark:bg-zinc-900 border-none shadow-sm p-6 lg:p-8">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 border-l-2 border-blue-600 pl-3">Identity Details</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Full Name</label><input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
-                        <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">System Username</label><input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
-                        <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
-                        <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Phone</label><input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
-                    </div>
-                </Card>
-
-                <Card className="apple-card space-y-6 bg-white dark:bg-zinc-900 border-none shadow-sm p-6 lg:p-8">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 border-l-2 border-blue-600 pl-3">Security Access</h3>
-                    <div className="space-y-4">
-                        <div className="space-y-1.5 text-left">
-                            <label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Current Key</label>
-                            <div className="relative"><input type={showPwd ? "text" : "password"} value={oldPassword} onChange={e => setOldPassword(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold" /><button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">{showPwd ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
+                <form onSubmit={handleUpdateProfile} className="space-y-6">
+                    <Card className="apple-card space-y-6 bg-white dark:bg-zinc-900 border-none shadow-sm p-6 lg:p-8">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 border-l-2 border-blue-600 pl-3">Identity Details</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Full Name</label><input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
+                            <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">System Username</label><input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
+                            <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
+                            <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Phone</label><input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-zinc-50 dark:border-zinc-800">
-                            <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">New Key</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold" /></div>
-                            <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Confirm</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold" /></div>
-                        </div>
-                    </div>
-                </Card>
+                    </Card>
 
-                <div className="flex justify-end pt-2 pb-10">
-                    <button type="submit" disabled={loading} className="btn-primary w-full sm:w-auto px-12 py-3.5 rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase shadow-lg shadow-blue-500/10">{loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Apply Modifications</button>
-                </div>
+                    <Card className="apple-card space-y-6 bg-white dark:bg-zinc-900 border-none shadow-sm p-6 lg:p-8">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-zinc-100 border-l-2 border-blue-600 pl-3">Security Access</h3>
+                        <div className="space-y-4">
+                            <div className="space-y-1.5 text-left">
+                                <label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Current Key</label>
+                                <div className="relative"><input type={showPwd ? "text" : "password"} value={oldPassword} onChange={e => setOldPassword(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold" /><button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">{showPwd ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-zinc-50 dark:border-zinc-800">
+                                <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">New Key</label><input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold" /></div>
+                                <div className="space-y-1.5 text-left"><label className="text-[9px] font-black text-zinc-400 uppercase ml-1">Confirm</label><input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full bg-zinc-50 dark:bg-zinc-800 border-none rounded-xl py-3 px-4 text-xs font-bold" /></div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <div className="flex justify-end pt-2 pb-10">
+                        <button type="submit" disabled={loading} className="btn-primary w-full sm:w-auto px-12 py-3.5 rounded-xl flex items-center justify-center gap-3 text-[10px] font-black uppercase shadow-lg shadow-blue-500/10">{loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Apply Modifications</button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
       ) : (
         <div className="space-y-6 px-2 pb-20 lg:pb-0">
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
@@ -316,4 +417,19 @@ export default function SettingsPage() {
       )}
     </div>
   );
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
