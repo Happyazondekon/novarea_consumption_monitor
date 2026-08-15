@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { recalculateCategoryConsumption } from "@/lib/consumption/interpolate";
 import webpush from "web-push";
+import { sendReadingAlertEmail } from "@/lib/mail/templates";
 
-// Configure Web Push for server-side dispatch
+// Configure Web Push
 webpush.setVapidDetails(
   'mailto:wins.azondekon@gmail.com',
   "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8",
@@ -42,8 +43,6 @@ export async function POST(req: Request) {
     const photoUrl = formData.get("photo") as string;
     const timeOfDay = formData.get("timeOfDay") as string;
 
-    // Fixed: isEdited is now true by default for all NEW technician entries
-    // This forces the "Audit Pending" state in the global system.
     const reading = await prisma.meterReading.create({
       data: {
         userId: (session.user as any).id,
@@ -58,12 +57,13 @@ export async function POST(req: Request) {
     // Recalculate deltas immediately
     await recalculateCategoryConsumption(category);
 
-    // Alert Administrators (Web Push)
+    // Alert Administrators (Web Push & Email)
     const admins = await prisma.user.findMany({
         where: { role: 'ADMINISTRATEUR' }
     });
 
     for (const admin of admins) {
+        // 1. Web Push Alert
         if (admin.pushSubscription) {
             try {
                 await webpush.sendNotification(admin.pushSubscription as any, JSON.stringify({
@@ -71,7 +71,12 @@ export async function POST(req: Request) {
                     body: `${session.user.name} logged ${value} ${category === 'POWER' ? 'kWh' : 'm³'} (Pending Audit)`,
                     url: "/dashboard/reports"
                 }));
-            } catch (err) { console.error("Admin notify failed", admin.id); }
+            } catch (err) { console.error("Admin push notify failed", admin.id); }
+        }
+
+        // 2. Email Alert (NEW: via Resend)
+        if (admin.email) {
+            await sendReadingAlertEmail(admin.email, admin.name, session.user.name || "Technician", category, value);
         }
     }
 

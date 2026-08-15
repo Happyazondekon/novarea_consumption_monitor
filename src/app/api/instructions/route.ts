@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import webpush from "web-push";
+import { sendMissionEmail } from "@/lib/mail/templates";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function GET() {
   try {
     if (role === 'ADMINISTRATEUR') {
       const missions = await prisma.instruction.findMany({
-        include: { user: { select: { name: true } } },
+        include: { user: { select: { name: true, email: true } } },
         orderBy: { createdAt: 'desc' }
       });
       return NextResponse.json(missions);
@@ -42,23 +43,31 @@ export async function GET() {
   }
 }
 
-async function sendNotification(userId: string, title: string, body: string, url: string) {
+async function sendNotification(userId: string, title: string, body: string, url: string, adminName: string, text: string) {
     try {
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { pushSubscription: true }
+            select: { name: true, email: true, pushSubscription: true }
         });
 
-        if (user?.pushSubscription) {
-            const sub = user.pushSubscription as any;
-            await webpush.sendNotification(sub, JSON.stringify({
-                title,
-                body,
-                url
-            }));
+        if (user) {
+            // 1. Web Push
+            if (user.pushSubscription) {
+                const sub = user.pushSubscription as any;
+                await webpush.sendNotification(sub, JSON.stringify({
+                    title,
+                    body,
+                    url
+                }));
+            }
+
+            // 2. Email Notification (via Resend)
+            if (user.email) {
+                await sendMissionEmail(user.email, user.name, adminName, text);
+            }
         }
     } catch (err) {
-        console.error("Web Push failed for user:", userId, err);
+        console.error("Multi-channel notification failed for user:", userId, err);
     }
 }
 
@@ -79,13 +88,15 @@ export async function POST(req: Request) {
         }));
         await prisma.instruction.createMany({ data });
 
-        // Notify each target user
+        // Notify each target user (Push + Email)
         for (const uid of body.userIds) {
             await sendNotification(
                 uid,
                 "New Operational Directive",
                 `${adminName}: ${body.text}`,
-                "/dashboard/instructions"
+                "/dashboard/instructions",
+                adminName,
+                body.text
             );
         }
     } else if (body.userId) {
@@ -100,7 +111,9 @@ export async function POST(req: Request) {
             body.userId,
             "New Operational Directive",
             `${adminName}: ${body.text}`,
-            "/dashboard/instructions"
+            "/dashboard/instructions",
+            adminName,
+            body.text
         );
     } else {
         return NextResponse.json({ error: "Missing targets" }, { status: 400 });
