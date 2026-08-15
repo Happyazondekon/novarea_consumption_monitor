@@ -15,7 +15,8 @@ export async function GET() {
     let count = 0;
 
     if (role === 'ADMINISTRATEUR') {
-      // Admin notifications: submissions pending audit (isEdited: true)
+      // Admin notifications: readings pending audit (isEdited: true)
+      // This is what powers the red badge in the Topbar for Admins
       count = await prisma.meterReading.count({
         where: { isEdited: true, isDeleted: false }
       });

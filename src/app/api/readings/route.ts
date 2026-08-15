@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { recalculateCategoryConsumption } from "@/lib/consumption/interpolate";
 import webpush from "web-push";
 
+// Configure Web Push for server-side dispatch
 webpush.setVapidDetails(
   'mailto:wins.azondekon@gmail.com',
   "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8",
@@ -41,6 +42,8 @@ export async function POST(req: Request) {
     const photoUrl = formData.get("photo") as string;
     const timeOfDay = formData.get("timeOfDay") as string;
 
+    // Fixed: isEdited is now true by default for all NEW technician entries
+    // This forces the "Audit Pending" state in the global system.
     const reading = await prisma.meterReading.create({
       data: {
         userId: (session.user as any).id,
@@ -48,13 +51,14 @@ export async function POST(req: Request) {
         value,
         photoUrl,
         timeOfDay,
+        isEdited: true
       },
     });
 
     // Recalculate deltas immediately
     await recalculateCategoryConsumption(category);
 
-    // Alert Administrators
+    // Alert Administrators (Web Push)
     const admins = await prisma.user.findMany({
         where: { role: 'ADMINISTRATEUR' }
     });
@@ -63,8 +67,8 @@ export async function POST(req: Request) {
         if (admin.pushSubscription) {
             try {
                 await webpush.sendNotification(admin.pushSubscription as any, JSON.stringify({
-                    title: "New Meter Reading Captured",
-                    body: `${session.user.name} logged ${value} ${category === 'POWER' ? 'kWh' : 'm³'}`,
+                    title: "New Reading Captured",
+                    body: `${session.user.name} logged ${value} ${category === 'POWER' ? 'kWh' : 'm³'} (Pending Audit)`,
                     url: "/dashboard/reports"
                 }));
             } catch (err) { console.error("Admin notify failed", admin.id); }
