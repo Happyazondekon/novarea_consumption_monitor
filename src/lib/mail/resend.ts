@@ -14,4 +14,5 @@ export const getResend = () => {
   return resendInstance;
 };
 
-export const FROM_EMAIL = 'Novarea Monitoring <onboarding@resend.dev>';
+// SIMPLIFIED: Standard Resend testing sender (No display name)
+export const FROM_EMAIL = 'onboarding@resend.dev';
