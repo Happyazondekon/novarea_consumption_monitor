@@ -4,11 +4,21 @@ import { FROM_EMAIL, getResend } from "./resend";
  * Dispatches an email notification for a new operational mission/instruction.
  */
 export async function sendMissionEmail(toEmail: string, techName: string, adminName: string, text: string) {
-  if (!toEmail || !process.env.RESEND_API_KEY) return;
+  console.log(`[MAIL_SERVICE] Attempting mission email to: ${toEmail}`);
+
+  if (!toEmail) {
+    console.error("[MAIL_SERVICE] Error: No recipient email provided.");
+    return;
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    console.error("[MAIL_SERVICE] Error: RESEND_API_KEY is not defined in environment.");
+    return;
+  }
 
   try {
     const resend = getResend();
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: toEmail,
       subject: '🚨 New Operational Mission - Novarea Textiles',
@@ -27,8 +37,14 @@ export async function sendMissionEmail(toEmail: string, techName: string, adminN
         </div>
       `
     });
-  } catch (error) {
-    console.error("Failed to send Mission Email to:", toEmail, error);
+
+    if (error) {
+        console.error(`[MAIL_SERVICE] Resend API Error for ${toEmail}:`, error);
+    } else {
+        console.log(`[MAIL_SERVICE] Success: Mission email sent to ${toEmail}. ID: ${data?.id}`);
+    }
+  } catch (err) {
+    console.error(`[MAIL_SERVICE] Critical failure sending to ${toEmail}:`, err);
   }
 }
 
@@ -36,13 +52,23 @@ export async function sendMissionEmail(toEmail: string, techName: string, adminN
  * Dispatches an email notification to administrators for a new field submission.
  */
 export async function sendReadingAlertEmail(toEmail: string, adminName: string, techName: string, category: string, value: number) {
-  if (!toEmail || !process.env.RESEND_API_KEY) return;
+  console.log(`[MAIL_SERVICE] Attempting reading alert email to: ${toEmail}`);
+
+  if (!toEmail) {
+    console.error("[MAIL_SERVICE] Error: No recipient email provided.");
+    return;
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    console.error("[MAIL_SERVICE] Error: RESEND_API_KEY is not defined in environment.");
+    return;
+  }
 
   const unit = category === 'POWER' ? 'kWh' : 'm³';
 
   try {
     const resend = getResend();
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: toEmail,
       subject: `📊 New ${category} Reading Logged - Pending Audit`,
@@ -69,7 +95,13 @@ export async function sendReadingAlertEmail(toEmail: string, adminName: string, 
         </div>
       `
     });
+
+    if (error) {
+        console.error(`[MAIL_SERVICE] Resend API Error for ${toEmail}:`, error);
+    } else {
+        console.log(`[MAIL_SERVICE] Success: Reading alert email sent to ${toEmail}. ID: ${data?.id}`);
+    }
   } catch (error) {
-    console.error("Failed to send Reading Alert Email to:", toEmail, error);
+    console.error(`[MAIL_SERVICE] Critical failure sending to ${toEmail}:`, error);
   }
 }
