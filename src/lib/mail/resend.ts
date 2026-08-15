@@ -1,7 +1,17 @@
 import { Resend } from 'resend';
 
-// Use environment variable for security.
-// Do NOT hardcode the API key here.
-export const resend = new Resend(process.env.RESEND_API_KEY);
+// We lazy-initialize the Resend client to avoid build-time errors
+// when the environment variable might be missing.
+let resendInstance: Resend | null = null;
+
+export const getResend = () => {
+  if (!resendInstance) {
+    const apiKey = process.env.RESEND_API_KEY;
+    // During local development or build if key is missing,
+    // we use a placeholder to prevent the constructor from crashing.
+    resendInstance = new Resend(apiKey || 're_placeholder_for_build');
+  }
+  return resendInstance;
+};
 
 export const FROM_EMAIL = 'Novarea Monitoring <onboarding@resend.dev>';

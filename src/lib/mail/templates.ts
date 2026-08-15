@@ -1,12 +1,13 @@
-import { FROM_EMAIL, resend } from "./resend";
+import { FROM_EMAIL, getResend } from "./resend";
 
 /**
  * Dispatches an email notification for a new operational mission/instruction.
  */
 export async function sendMissionEmail(toEmail: string, techName: string, adminName: string, text: string) {
-  if (!toEmail) return;
+  if (!toEmail || !process.env.RESEND_API_KEY) return;
 
   try {
+    const resend = getResend();
     await resend.emails.send({
       from: FROM_EMAIL,
       to: toEmail,
@@ -35,11 +36,12 @@ export async function sendMissionEmail(toEmail: string, techName: string, adminN
  * Dispatches an email notification to administrators for a new field submission.
  */
 export async function sendReadingAlertEmail(toEmail: string, adminName: string, techName: string, category: string, value: number) {
-  if (!toEmail) return;
+  if (!toEmail || !process.env.RESEND_API_KEY) return;
 
   const unit = category === 'POWER' ? 'kWh' : 'm³';
 
   try {
+    const resend = getResend();
     await resend.emails.send({
       from: FROM_EMAIL,
       to: toEmail,
