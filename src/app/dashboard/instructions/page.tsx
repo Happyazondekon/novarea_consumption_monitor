@@ -46,6 +46,7 @@ export default function InstructionsPage() {
       }
 
       if (isAdmin) {
+          // IMPORTANT: Explicitly fetch technicians with their emails for notification mapping
           const techRes = await fetch("/api/users?role=ELECTRICIEN");
           if (techRes.ok) setTechnicians(await techRes.json());
       }
@@ -103,7 +104,6 @@ export default function InstructionsPage() {
         });
         if (res.ok) {
             fetchInstructions();
-            // Optional: Trigger a custom event for Topbar count refresh if needed
             window.dispatchEvent(new Event('refreshNotifications'));
         } else {
             Swal.fire('Error', 'Update failed', 'error');
@@ -171,7 +171,13 @@ export default function InstructionsPage() {
                     <div className="flex flex-wrap gap-2">
                         {technicians.map(tech => (
                             <button type="button" key={tech.id} onClick={() => toggleTechId(tech.id)} className={cn("p-2.5 rounded-xl border-2 transition-all flex items-center gap-2 text-[10px] font-bold uppercase", selectedTechIds.includes(tech.id) ? "bg-blue-600 border-blue-600 text-white shadow-lg" : "bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-800 text-zinc-400")}>
-                                <Users size={14} /> {tech.name}
+                                <div className="flex flex-col items-start">
+                                    <div className="flex items-center gap-2">
+                                        <Users size={14} />
+                                        <span>{tech.name}</span>
+                                    </div>
+                                    <span className="text-[7px] opacity-60 ml-5">{tech.email || "No email"}</span>
+                                </div>
                             </button>
                         ))}
                     </div>

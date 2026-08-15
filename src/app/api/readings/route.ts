@@ -57,26 +57,38 @@ export async function POST(req: Request) {
     // Recalculate deltas immediately
     await recalculateCategoryConsumption(category);
 
-    // Alert Administrators (Web Push & Email)
+    // --- NOTIFICATION LAYER (Multi-Channel) ---
+
+    // We fetch ALL Administrators with their LATEST emails and push subscriptions from DB
     const admins = await prisma.user.findMany({
-        where: { role: 'ADMINISTRATEUR' }
+        where: { role: 'ADMINISTRATEUR', isActive: true },
+        select: { id: true, name: true, email: true, pushSubscription: true }
     });
 
+    const technicianName = session.user.name || "Technician";
+
     for (const admin of admins) {
-        // 1. Web Push Alert
+        // 1. Web Push Alert (Browser/Phone)
         if (admin.pushSubscription) {
             try {
                 await webpush.sendNotification(admin.pushSubscription as any, JSON.stringify({
                     title: "New Reading Captured",
-                    body: `${session.user.name} logged ${value} ${category === 'POWER' ? 'kWh' : 'm³'} (Pending Audit)`,
+                    body: `${technicianName} logged ${value} ${category === 'POWER' ? 'kWh' : 'm³'} (Audit Required)`,
                     url: "/dashboard/reports"
                 }));
-            } catch (err) { console.error("Admin push notify failed", admin.id); }
+            } catch (err) { console.error("Admin push notify failed:", admin.id); }
         }
 
-        // 2. Email Alert (NEW: via Resend)
+        // 2. Email Alert (Professional Inbox via Resend)
         if (admin.email) {
-            await sendReadingAlertEmail(admin.email, admin.name, session.user.name || "Technician", category, value);
+            console.log(`[MAIL] Sending reading alert to Admin: ${admin.email}`);
+            await sendReadingAlertEmail(
+                admin.email,
+                admin.name,
+                technicianName,
+                category,
+                value
+            );
         }
     }
 
