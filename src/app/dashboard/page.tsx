@@ -43,7 +43,8 @@ import {
   Legend,
   ResponsiveContainer,
   ReferenceLine,
-  Cell
+  Cell,
+  LabelList
 } from 'recharts';
 import { format, differenceInDays } from 'date-fns';
 import { INDUSTRIAL_COLORS } from '@/lib/constants/colors';
@@ -112,12 +113,18 @@ export default function DashboardPage() {
     }
   }, [status, isAdmin, activeResource, activePeriod, customStart, customEnd, activeAggregation]);
 
-  // Dynamic label for Baseline Average
+  // Dynamic label & unit for Baseline Average according to active aggregation
   const getAverageLabel = () => {
-      if (activePeriod === 'WEEK') return "Weekly Average";
-      if (activePeriod === 'MONTH') return "Monthly Average";
-      if (activePeriod === 'YEAR') return "Annual Average";
-      return "Period Average";
+      if (activeAggregation === 'WEEK') return "Weekly Baseline";
+      if (activeAggregation === 'MONTH') return "Monthly Baseline";
+      return "Daily Baseline";
+  };
+
+  const getAverageUnit = () => {
+      const resUnit = activeResource === 'POWER' ? 'kWh' : 'm³';
+      if (activeAggregation === 'WEEK') return `${resUnit}/wk`;
+      if (activeAggregation === 'MONTH') return `${resUnit}/mo`;
+      return `${resUnit}/d`;
   };
 
   if (status === "loading") return (
@@ -229,8 +236,8 @@ export default function DashboardPage() {
         />
         <KPICard
             title="Baseline Average"
-            value={stats?.dailyAverage || "0.00"}
-            unit={activeResource === 'POWER' ? 'kWh/d' : 'm³/d'}
+            value={stats?.referenceAverage !== undefined ? Number(stats.referenceAverage).toFixed(2) : (stats?.dailyAverage || "0.00")}
+            unit={getAverageUnit()}
             sub={getAverageLabel()}
             icon={TrendingUp}
             color="green"
@@ -262,13 +269,94 @@ export default function DashboardPage() {
                     <>
                         <div className="flex-1 min-h-[350px]">
                             <ResponsiveContainer width="100%" height={380}>
-                                <ComposedChart data={stats?.chartData || []} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
+                                <ComposedChart data={stats?.chartData || []} margin={{ top: 25, right: 10, left: -25, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }} dy={12} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }} />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }}
+                                        domain={[0, (dataMax: number) => Math.ceil((dataMax || 10) * 1.15)]}
+                                    />
                                     <Tooltip content={<CustomTooltip theme={{ isDark }} />} />
-                                    <ReferenceLine y={stats?.referenceAverage || 0} stroke={INDUSTRIAL_COLORS.REFERENCE_LINE} strokeDasharray="5 5" strokeWidth={2} label={{ position: 'right', value: `AVG: ${stats?.referenceAverage}`, fill: INDUSTRIAL_COLORS.REFERENCE_LINE, fontSize: 9, fontWeight: 900 }} />
+                                    <ReferenceLine
+                                        y={stats?.referenceAverage || 0}
+                                        stroke={INDUSTRIAL_COLORS.REFERENCE_LINE}
+                                        strokeDasharray="4 4"
+                                        strokeWidth={1.5}
+                                        label={(props: any): React.ReactElement<SVGElement> => {
+                                            const { viewBox } = props;
+                                            if (!viewBox || !stats?.referenceAverage) return <g />;
+                                            const { x, y, width } = viewBox;
+                                            const avgVal = Number(stats.referenceAverage).toFixed(2);
+                                            const unit = getAverageUnit();
+                                            const labelText = `AVG: ${avgVal} ${unit}`;
+                                            return (
+                                                <g>
+                                                    <rect
+                                                        x={x + width - 110}
+                                                        y={y - 15}
+                                                        width={105}
+                                                        height={14}
+                                                        rx={4}
+                                                        fill={isDark ? "#18181b" : "#ffffff"}
+                                                        fillOpacity={0.9}
+                                                        stroke={INDUSTRIAL_COLORS.REFERENCE_LINE}
+                                                        strokeWidth={1}
+                                                    />
+                                                    <text
+                                                        x={x + width - 57}
+                                                        y={y - 4}
+                                                        fill={INDUSTRIAL_COLORS.REFERENCE_LINE}
+                                                        textAnchor="middle"
+                                                        fontSize={8.5}
+                                                        fontWeight={900}
+                                                        className="select-none"
+                                                    >
+                                                        {labelText}
+                                                    </text>
+                                                </g>
+                                            );
+                                        }}
+                                    />
                                     <Bar dataKey="consumption" radius={[6, 6, 0, 0]} barSize={activeAggregation === 'MONTH' ? 40 : activeAggregation === 'WEEK' ? 25 : 14}>
+                                        <LabelList
+                                            dataKey="consumption"
+                                            content={(props: any) => {
+                                                const { x, y, width, value } = props;
+                                                if (value === undefined || value === null || value <= 0) return null;
+                                                let formatted: string;
+                                                if (value >= 1000) {
+                                                    formatted = Math.round(value).toString();
+                                                } else if (value >= 10) {
+                                                    formatted = value % 1 === 0 ? value.toFixed(0) : value.toFixed(1);
+                                                } else {
+                                                    formatted = value.toFixed(1);
+                                                }
+                                                const charCount = formatted.length;
+                                                let fontSize = 8.5;
+                                                if (charCount >= 5) {
+                                                    fontSize = (width || 14) < 20 ? 6.5 : 7.5;
+                                                } else if (charCount >= 4) {
+                                                    fontSize = (width || 14) < 18 ? 7 : 8;
+                                                } else if ((width || 14) > 30) {
+                                                    fontSize = 9.5;
+                                                }
+                                                return (
+                                                    <text
+                                                        x={x + (width || 14) / 2}
+                                                        y={y - 5}
+                                                        fill={isDark ? "#e4e4e7" : "#3f3f46"}
+                                                        textAnchor="middle"
+                                                        fontSize={fontSize}
+                                                        fontWeight={800}
+                                                        className="select-none"
+                                                    >
+                                                        {formatted}
+                                                    </text>
+                                                );
+                                            }}
+                                        />
                                         { (stats?.chartData || []).map((entry: any, index: number) => (
                                             <Cell
                                                 key={`cell-${index}`}

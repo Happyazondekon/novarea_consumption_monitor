@@ -385,13 +385,95 @@ export default function ReportGeneratorPage() {
                                 <div className="flex items-center gap-3"><BarChart3 size={18} className="text-blue-600" /><h4 className="text-xs font-black uppercase tracking-widest text-zinc-400">Trends Visualization</h4></div>
                                 <div ref={chartRef} className="bg-zinc-50 dark:bg-zinc-800/30 p-6 rounded-[2rem] border border-zinc-100 dark:border-zinc-800">
                                     <ResponsiveContainer width="100%" height={350}>
-                                        <ComposedChart data={reportData.chartData} margin={{ top: 20, right: 10, left: -25, bottom: 0 }}>
+                                        <ComposedChart data={reportData.chartData} margin={{ top: 25, right: 10, left: -25, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }} dy={12} />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }} />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fontSize: 9, fontWeight: 900, fill: axisColor }}
+                                                domain={[0, (dataMax: number) => Math.ceil((dataMax || 10) * 1.15)]}
+                                            />
                                             <Tooltip content={<CustomTooltip theme={{ isDark }} />} />
-                                            <ReferenceLine y={reportData.referenceAverage} stroke={INDUSTRIAL_COLORS.REFERENCE_LINE} strokeDasharray="5 5" strokeWidth={2} label={{ position: 'right', value: `AVG: ${reportData.referenceAverage.toFixed(2)}`, fill: INDUSTRIAL_COLORS.REFERENCE_LINE, fontSize: 8, fontWeight: 900 }} />
+                                            <ReferenceLine
+                                                y={reportData.referenceAverage}
+                                                stroke={INDUSTRIAL_COLORS.REFERENCE_LINE}
+                                                strokeDasharray="4 4"
+                                                strokeWidth={1.5}
+                                                label={(props: any): React.ReactElement<SVGElement> => {
+                                                    const { viewBox } = props;
+                                                    if (!viewBox || !reportData.referenceAverage) return <g />;
+                                                    const { x, y, width } = viewBox;
+                                                    const avgVal = Number(reportData.referenceAverage).toFixed(2);
+                                                    const resUnit = resource === 'POWER' ? 'kWh' : 'm³';
+                                                    const unit = aggregation === 'MONTH' ? `${resUnit}/mo` : aggregation === 'WEEK' ? `${resUnit}/wk` : `${resUnit}/d`;
+                                                    const labelText = `AVG: ${avgVal} ${unit}`;
+                                                    return (
+                                                        <g>
+                                                            <rect
+                                                                x={x + width - 110}
+                                                                y={y - 15}
+                                                                width={105}
+                                                                height={14}
+                                                                rx={4}
+                                                                fill={isDark ? "#18181b" : "#ffffff"}
+                                                                fillOpacity={0.9}
+                                                                stroke={INDUSTRIAL_COLORS.REFERENCE_LINE}
+                                                                strokeWidth={1}
+                                                            />
+                                                            <text
+                                                                x={x + width - 57}
+                                                                y={y - 4}
+                                                                fill={INDUSTRIAL_COLORS.REFERENCE_LINE}
+                                                                textAnchor="middle"
+                                                                fontSize={8.5}
+                                                                fontWeight={900}
+                                                                className="select-none"
+                                                            >
+                                                                {labelText}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }}
+                                            />
                                             <Bar dataKey="consumption" fill={resource === 'POWER' ? INDUSTRIAL_COLORS.POWER : INDUSTRIAL_COLORS.WATER} radius={[4, 4, 0, 0]} barSize={aggregation === 'MONTH' ? 40 : 15}>
+                                                <LabelList
+                                                    dataKey="consumption"
+                                                    content={(props: any) => {
+                                                        const { x, y, width, value } = props;
+                                                        if (value === undefined || value === null || value <= 0) return null;
+                                                        let formatted: string;
+                                                        if (value >= 1000) {
+                                                            formatted = Math.round(value).toString();
+                                                        } else if (value >= 10) {
+                                                            formatted = value % 1 === 0 ? value.toFixed(0) : value.toFixed(1);
+                                                        } else {
+                                                            formatted = value.toFixed(1);
+                                                        }
+                                                        const charCount = formatted.length;
+                                                        let fontSize = 8.5;
+                                                        if (charCount >= 5) {
+                                                            fontSize = (width || 15) < 20 ? 6.5 : 7.5;
+                                                        } else if (charCount >= 4) {
+                                                            fontSize = (width || 15) < 18 ? 7 : 8;
+                                                        } else if ((width || 15) > 30) {
+                                                            fontSize = 9.5;
+                                                        }
+                                                        return (
+                                                            <text
+                                                                x={x + (width || 15) / 2}
+                                                                y={y - 5}
+                                                                fill={isDark ? "#e4e4e7" : "#3f3f46"}
+                                                                textAnchor="middle"
+                                                                fontSize={fontSize}
+                                                                fontWeight={800}
+                                                                className="select-none"
+                                                            >
+                                                                {formatted}
+                                                            </text>
+                                                        );
+                                                    }}
+                                                />
                                                 { (reportData.chartData || []).map((entry: any, index: number) => (
                                                     <Cell key={`cell-${index}`} fillOpacity={entry.source === 'INTERPOLATED' ? 0.4 : 1} stroke={entry.source === 'INTERPOLATED' ? (resource === 'POWER' ? INDUSTRIAL_COLORS.POWER : INDUSTRIAL_COLORS.WATER) : 'none'} strokeDasharray={entry.source === 'INTERPOLATED' ? "4 4" : "0"} />
                                                 ))}

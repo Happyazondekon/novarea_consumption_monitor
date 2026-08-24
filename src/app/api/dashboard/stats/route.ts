@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
     console.log(`[STATS_API] Fetching ${resource} for ${period} (Agg: ${aggregation})...`);
 
-    // Updated: getKPICards now receives temporal filters to sync metrics
+    // Sync KPICards metrics with charts
     const [kpis, charts] = await Promise.all([
         getKPICards(resource, targetDate, period, customStart, customEnd),
         getChartData(resource, period, targetDate, customStart, customEnd, aggregation)
@@ -35,7 +35,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       ...kpis,
-      ...charts
+      ...charts,
+      dailyAverage: charts.referenceAverage.toFixed(2)
     });
   } catch (error: any) {
     console.error("[STATS_API_ERROR]", error);
