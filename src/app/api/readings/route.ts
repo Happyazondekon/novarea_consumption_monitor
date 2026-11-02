@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { recalculateCategoryConsumption } from "@/lib/consumption/interpolate";
-import webpush from "web-push";
+import { sendPush } from "@/lib/push";
 import { sendReadingAlertEmail } from "@/lib/mail/templates";
-
-// Configure Web Push
-webpush.setVapidDetails(
-  'mailto:wins.azondekon@gmail.com',
-  "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8",
-  "N_jV_EJTkQm7tRIrRkVNRmNPpDy_8Lq6E7EG6hWewL8"
-);
+import {
+  CATEGORIES,
+  MAX_PHOTO_CHARS,
+  TIMES_OF_DAY,
+  isOneOf,
+  parseMeterValue,
+} from "@/lib/security/guards";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -38,17 +38,35 @@ export async function POST(req: Request) {
 
   try {
     const formData = await req.formData();
-    const category = formData.get("category") as string;
-    const value = parseFloat(formData.get("value") as string);
-    const photoUrl = formData.get("photo") as string;
-    const timeOfDay = formData.get("timeOfDay") as string;
+    const category = formData.get("category");
+    const timeOfDay = formData.get("timeOfDay");
+    const photoUrl = formData.get("photo");
+
+    // Validate before touching the database: `value` fed straight into
+    // parseFloat used to let an empty or malformed field through as NaN, and
+    // every consumption delta downstream is computed from it.
+    if (!isOneOf(category, CATEGORIES)) {
+      return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    }
+    if (!isOneOf(timeOfDay, TIMES_OF_DAY)) {
+      return NextResponse.json({ error: "Invalid timeOfDay" }, { status: 400 });
+    }
+
+    const value = parseMeterValue(formData.get("value"));
+    if (value === null) {
+      return NextResponse.json({ error: "Invalid meter value" }, { status: 400 });
+    }
+
+    if (typeof photoUrl === "string" && photoUrl.length > MAX_PHOTO_CHARS) {
+      return NextResponse.json({ error: "Photo is too large" }, { status: 413 });
+    }
 
     const reading = await prisma.meterReading.create({
       data: {
         userId: (session.user as any).id,
         category,
         value,
-        photoUrl,
+        photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : undefined,
         timeOfDay,
         isEdited: true
       },
@@ -69,15 +87,11 @@ export async function POST(req: Request) {
 
     for (const admin of admins) {
         // 1. Web Push Alert (Browser/Phone)
-        if (admin.pushSubscription) {
-            try {
-                await webpush.sendNotification(admin.pushSubscription as any, JSON.stringify({
-                    title: "New Reading Captured",
-                    body: `${technicianName} logged ${value} ${category === 'POWER' ? 'kWh' : 'm³'} (Audit Required)`,
-                    url: "/dashboard/reports"
-                }));
-            } catch (err) { console.error("Admin push notify failed:", admin.id); }
-        }
+        await sendPush(admin.pushSubscription, {
+            title: "New Reading Captured",
+            body: `${technicianName} logged ${value} ${category === 'POWER' ? 'kWh' : 'm³'} (Audit Required)`,
+            url: "/dashboard/reports"
+        });
 
         // 2. Email Alert (Professional Inbox via Resend)
         if (admin.email) {

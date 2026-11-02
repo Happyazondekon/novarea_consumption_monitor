@@ -1,43 +1,63 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { getResend, FROM_EMAIL } from "@/lib/mail/resend";
 
+/**
+ * Resend connectivity diagnostic.
+ *
+ * This was previously unauthenticated: anybody who knew the URL could make the
+ * deployment send mail on demand (burning the Resend quota) and could read back
+ * the provider's raw error payload. It is now admin-only, it mails the
+ * requesting administrator rather than a hardcoded address, and provider errors
+ * are logged server-side instead of being returned to the caller.
+ */
 export async function GET() {
-  const apiKey = process.env.RESEND_API_KEY;
+  const session = await auth();
+  const user = session?.user as { role?: string; email?: string | null; name?: string } | undefined;
 
-  if (!apiKey) {
-    return NextResponse.json({
-        error: "RESEND_API_KEY is missing in Vercel environment.",
-        status: "FAIL"
-    });
+  if (user?.role !== "ADMINISTRATEUR") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (!user.email) {
+    return NextResponse.json(
+      { status: "FAIL", message: "Your account has no email address configured." },
+      { status: 400 }
+    );
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    return NextResponse.json(
+      { status: "FAIL", message: "RESEND_API_KEY is missing in the deployment environment." },
+      { status: 500 }
+    );
   }
 
   try {
-    const resend = getResend();
-    const { data, error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM_EMAIL,
-      to: 'fxmakerman@gmail.com', // Primary account owner
-      subject: 'Novarea System Diagnostic',
-      html: '<p>If you see this, <strong>Resend connectivity is OK</strong>.</p>'
+      to: user.email,
+      subject: "Novarea System Diagnostic",
+      html: "<p>If you see this, <strong>Resend connectivity is OK</strong>.</p>",
     });
 
     if (error) {
-        return NextResponse.json({
-            error: error,
-            message: "Resend API returned an error.",
-            status: "API_ERROR"
-        });
+      console.error("[MAIL_DIAGNOSTIC] Resend returned an error:", error);
+      return NextResponse.json(
+        { status: "API_ERROR", message: "Resend rejected the request. See server logs." },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json({
-        success: true,
-        data,
-        message: "Email sent to fxmakerman@gmail.com. Check inbox/spam."
+      status: "OK",
+      message: `Diagnostic email sent to ${user.email}. Check inbox/spam.`,
     });
-
-  } catch (err: any) {
-    return NextResponse.json({
-        error: err.message,
-        status: "CRITICAL_FAILURE"
-    });
+  } catch (err) {
+    console.error("[MAIL_DIAGNOSTIC] Unexpected failure:", err);
+    return NextResponse.json(
+      { status: "CRITICAL_FAILURE", message: "Mail service unreachable. See server logs." },
+      { status: 500 }
+    );
   }
 }

@@ -1,17 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import webpush from "web-push";
+import { sendPush } from "@/lib/push";
 import { sendMissionEmail } from "@/lib/mail/templates";
 
 export const dynamic = "force-dynamic";
-
-// Configure Web Push
-webpush.setVapidDetails(
-  'mailto:wins.azondekon@gmail.com',
-  "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8",
-  "N_jV_EJTkQm7tRIrRkVNRmNPpDy_8Lq6E7EG6hWewL8"
-);
 
 export async function GET() {
   const session = await auth();
@@ -52,14 +45,7 @@ async function sendNotification(userId: string, title: string, body: string, url
 
         if (user) {
             // 1. Web Push
-            if (user.pushSubscription) {
-                const sub = user.pushSubscription as any;
-                await webpush.sendNotification(sub, JSON.stringify({
-                    title,
-                    body,
-                    url
-                }));
-            }
+            await sendPush(user.pushSubscription, { title, body, url });
 
             // 2. Email Notification (via Resend)
             if (user.email) {

@@ -5,7 +5,15 @@ import { useSession } from 'next-auth/react';
 import { Bell, BellOff, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const PUBLIC_VAPID_KEY = "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8";
+// The VAPID public key is meant to be public — the browser needs it to
+// subscribe. It is read from the environment so that rotating the key pair
+// changes the browser side and the server side (src/lib/push.ts) together: a
+// mismatch between the two makes every push fail silently. The literal is the
+// historical key, kept as a fallback so nothing breaks before the variable is
+// set in the deployment.
+const PUBLIC_VAPID_KEY =
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+  "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8";
 
 export function PushNotificationManager() {
   const { data: session } = useSession();

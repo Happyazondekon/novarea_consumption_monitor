@@ -11,7 +11,11 @@ import {
 import { cn } from "@/lib/utils";
 import Swal from 'sweetalert2';
 
-const PUBLIC_VAPID_KEY = "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8";
+// Read from the environment so the browser and the server (src/lib/push.ts)
+// always use the same key pair — see PushNotificationManager for the details.
+const PUBLIC_VAPID_KEY =
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+  "BA-l5QNwNPDSadlNd8YFxharpn7qldla3LcTgoNhS38Yre1TpaMGxGLwrjF_0yubxfYZASka82avM1AiQQ-RuI8";
 
 export default function SettingsPage() {
   const { data: session, update } = useSession();

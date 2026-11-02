@@ -5,45 +5,14 @@ export const authConfig = {
     signIn: "/login",
   },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const role = (auth?.user as any)?.role;
-      const isAuthPage = nextUrl.pathname.startsWith("/login");
-      const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth");
-      const isDashboardRoute = nextUrl.pathname.startsWith("/dashboard");
-
-      // Admin-only sub-routes
-      const adminOnlyRoutes = [
-        "/dashboard/events",
-        "/dashboard/reports",
-        "/dashboard/reports/generator",
-        "/dashboard/users"
-      ];
-      const isAdminRoute = adminOnlyRoutes.some(route => nextUrl.pathname.startsWith(route));
-
-      if (isApiAuthRoute) return true;
-
-      if (isAuthPage) {
-        if (isLoggedIn) return Response.redirect(new URL("/dashboard", nextUrl));
-        return true;
-      }
-
-      if (isDashboardRoute) {
-        if (!isLoggedIn) {
-            // Redirect to login if trying to access dashboard while unauthenticated
-            const loginUrl = new URL("/login", nextUrl);
-            loginUrl.searchParams.set("callbackUrl", nextUrl.pathname);
-            return Response.redirect(loginUrl);
-        }
-
-        // Role-based Access Control
-        if (isAdminRoute && role !== 'ADMINISTRATEUR') {
-            return Response.redirect(new URL("/dashboard", nextUrl));
-        }
-      }
-
-      return true;
-    },
+    // NOTE: there is deliberately no `authorized` callback here.
+    //
+    // next-auth v5 runs `authorized` before the middleware handler and, the
+    // moment it returns a Response, it skips that handler entirely
+    // (node_modules/next-auth/lib/index.js -> handleAuth). Keeping the route
+    // gate here meant redirects were emitted without the security headers, and
+    // the rules lived in two places that could drift. The whole gate now sits
+    // in src/middleware.ts.
     async jwt({ token, user, trigger, session }) {
         if (user) {
           token.id = user.id;
