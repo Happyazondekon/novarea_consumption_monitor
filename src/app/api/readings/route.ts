@@ -19,14 +19,53 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : undefined;
 
+  // Photos and avatars are NOT sent here. They used to be inlined as base64 on
+  // every row (the avatar repeated once per reading), which made each History
+  // or Reports page load pull ~50 MB out of Neon. Instead each row carries a
+  // URL to a cacheable binary endpoint, versioned by the image's length so a
+  // replaced image gets a fresh URL.
   try {
-    const readings = await prisma.meterReading.findMany({
-      where: { isDeleted: false },
-      orderBy: { timestamp: "desc" },
-      take: limit,
-      include: { user: { select: { name: true, avatar: true } } },
-    });
-    return NextResponse.json(readings);
+    const [readings, photoLengths, avatarLengths] = await Promise.all([
+      prisma.meterReading.findMany({
+        where: { isDeleted: false },
+        orderBy: { timestamp: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          userId: true,
+          category: true,
+          value: true,
+          timestamp: true,
+          timeOfDay: true,
+          isEdited: true,
+          isDeleted: true,
+          user: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.$queryRaw<{ id: string; len: number }[]>`
+        SELECT id, length("photoUrl")::int AS len FROM "MeterReading"
+        WHERE "photoUrl" IS NOT NULL AND "isDeleted" = false`,
+      prisma.$queryRaw<{ id: string; len: number }[]>`
+        SELECT id, length(avatar)::int AS len FROM "User" WHERE avatar IS NOT NULL`,
+    ]);
+
+    const photoVersion = new Map(photoLengths.map((r) => [r.id, r.len]));
+    const avatarVersion = new Map(avatarLengths.map((r) => [r.id, r.len]));
+
+    return NextResponse.json(
+      readings.map((r) => {
+        const pv = photoVersion.get(r.id);
+        const av = avatarVersion.get(r.user.id);
+        return {
+          ...r,
+          photoUrl: pv ? `/api/readings/${r.id}/photo?v=${pv}` : null,
+          user: {
+            name: r.user.name,
+            avatar: av ? `/api/users/${r.user.id}/avatar?v=${av}` : null,
+          },
+        };
+      })
+    );
   } catch (err) {
     return NextResponse.json({ error: "Fetch failed" }, { status: 500 });
   }
@@ -61,12 +100,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Photo is too large" }, { status: 413 });
     }
 
-    const reading = await prisma.meterReading.create({
+    const { photoUrl: _photo, ...reading } = await prisma.meterReading.create({
       data: {
         userId: (session.user as any).id,
         category,
         value,
-        photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : undefined,
+        photoUrl:
+          typeof photoUrl === "string" && photoUrl.startsWith("data:image/") ? photoUrl : undefined,
         timeOfDay,
         isEdited: true
       },

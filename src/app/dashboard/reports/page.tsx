@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import Swal from 'sweetalert2';
 import { format, isSameDay } from "date-fns";
+import { compressImage, METER_PHOTO } from "@/lib/image/compress";
 
 export default function ReportsPage() {
   const [filter, setFilter] = useState("ALL");
@@ -47,27 +48,28 @@ export default function ReportsPage() {
   const handleOpenEdit = (reading: any) => {
     setSelectedReading(reading);
     setEditValue(reading.value.toString());
-    setEditPhotoData(reading.photoUrl || null);
+    setEditPhotoData(null); // holds a NEW photo only; the stored one is shown via its URL
     setEditFileName(null);
     setViewMode("edit");
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+    try {
+      setEditPhotoData(await compressImage(file, METER_PHOTO));
       setEditFileName(file.name);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditPhotoData(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    } catch {
+      Swal.fire('Error', 'This image could not be read.', 'error');
     }
   };
 
   const handleUpdate = async (reading: any, validateOnly = false) => {
     const targetId = validateOnly ? reading.id : selectedReading.id;
     const targetValue = validateOnly ? reading.value : editValue;
-    const targetPhoto = validateOnly ? reading.photoUrl : editPhotoData;
+    // Only send a photo when a new one was picked; the server ignores anything
+    // that is not a fresh data URL anyway.
+    const targetPhoto = validateOnly ? undefined : editPhotoData ?? undefined;
 
     setUpdating(true);
     try {
@@ -254,13 +256,13 @@ export default function ReportsPage() {
                 </Card>
             </div>
 
-            {showPreview && editPhotoData && (
+            {showPreview && (editPhotoData || selectedReading.photoUrl) && (
                 <div className="fixed inset-0 z-[150] flex items-center justify-center bg-zinc-950/90 backdrop-blur-xl animate-in fade-in duration-300 p-4 lg:p-8">
                     <button onClick={() => setShowPreview(false)} className="absolute top-6 lg:top-8 right-6 lg:right-8 w-10 lg:w-14 h-10 lg:h-14 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all">
                         <X className="w-6 h-6 lg:w-8 lg:h-8" />
                     </button>
                     <div className="relative w-full max-w-4xl h-full max-h-[80vh] rounded-3xl lg:rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white/10">
-                        <img src={editPhotoData} alt="Meter Preview" className="w-full h-full object-contain" />
+                        <img src={editPhotoData || selectedReading.photoUrl} alt="Meter Preview" className="w-full h-full object-contain" />
                     </div>
                 </div>
             )}
@@ -441,7 +443,7 @@ export default function ReportsPage() {
                       <td className="px-6 py-4">
                          <div className="flex items-center gap-3">
                             <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[8px] font-black uppercase overflow-hidden border border-zinc-50 dark:border-zinc-700">
-                                {item.user?.avatar ? <img src={item.user.avatar} className="w-full h-full object-cover" /> : item.user?.name?.substring(0,2)}
+                                {item.user?.avatar ? <img src={item.user.avatar} loading="lazy" className="w-full h-full object-cover" /> : item.user?.name?.substring(0,2)}
                             </div>
                             <span className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase truncate max-w-[120px]">{item.user?.name}</span>
                          </div>

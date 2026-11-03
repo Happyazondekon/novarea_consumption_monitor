@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { recalculateCategoryConsumption } from "@/lib/consumption/interpolate";
+import { MAX_PHOTO_CHARS } from "@/lib/security/guards";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await auth();
@@ -12,16 +13,27 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const { value, photoUrl, isEdited, isValidated } = await req.json();
     const id = params.id;
 
-    const readingBefore = await prisma.meterReading.findUnique({ where: { id } });
+    const readingBefore = await prisma.meterReading.findUnique({
+      where: { id },
+      select: { category: true },
+    });
     if (!readingBefore) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const updateData: any = {};
     if (value !== undefined) updateData.value = parseFloat(value);
-    if (photoUrl !== undefined) updateData.photoUrl = photoUrl || undefined;
+    // Only a freshly uploaded image replaces the stored one. The client now
+    // holds `/api/readings/:id/photo?v=` URLs, never the base64 itself, so
+    // anything that is not a data URL must not be written back.
+    if (typeof photoUrl === "string" && photoUrl.startsWith("data:image/")) {
+      if (photoUrl.length > MAX_PHOTO_CHARS) {
+        return NextResponse.json({ error: "Photo is too large" }, { status: 413 });
+      }
+      updateData.photoUrl = photoUrl;
+    }
     if (isEdited !== undefined) updateData.isEdited = isEdited;
     if (isValidated !== undefined) updateData.isEdited = !isValidated;
 
-    const updated = await prisma.meterReading.update({
+    const { photoUrl: _photo, ...updated } = await prisma.meterReading.update({
       where: { id },
       data: updateData
     });
@@ -46,7 +58,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const id = params.id;
 
   try {
-    const reading = await prisma.meterReading.findUnique({ where: { id } });
+    const reading = await prisma.meterReading.findUnique({
+      where: { id },
+      select: { userId: true, category: true },
+    });
     if (!reading) return NextResponse.json({ error: "Reading not found" }, { status: 404 });
 
     if (role !== 'ADMINISTRATEUR' && reading.userId !== userId) {

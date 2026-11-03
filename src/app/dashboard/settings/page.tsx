@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Swal from 'sweetalert2';
+import { compressImage, AVATAR } from "@/lib/image/compress";
 
 // Read from the environment so the browser and the server (src/lib/push.ts)
 // always use the same key pair — see PushNotificationManager for the details.
@@ -110,12 +111,13 @@ export default function SettingsPage() {
 
   const handleAvatarClick = () => fileInputRef.current?.click();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setAvatar(reader.result as string);
-      reader.readAsDataURL(file);
+    if (!file) return;
+    try {
+      setAvatar(await compressImage(file, AVATAR));
+    } catch {
+      Swal.fire('Error', 'This image could not be read.', 'error');
     }
   };
 

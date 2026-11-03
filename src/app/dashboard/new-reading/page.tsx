@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import Swal from 'sweetalert2';
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
+import { compressImage, METER_PHOTO } from "@/lib/image/compress";
 
 export default function NewReadingPage() {
   const router = useRouter();
@@ -33,35 +34,15 @@ export default function NewReadingPage() {
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  const compressImage = (base64: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = base64;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const MAX_DIM = 1024;
-        if (width > height) { if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; } }
-        else { if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; } }
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
-      };
-    });
-  };
-
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string);
-        setPhotoData(compressed);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    setFileName(file.name);
+    try {
+      setPhotoData(await compressImage(file, METER_PHOTO));
+    } catch {
+      setFileName(null);
+      Swal.fire({ icon: 'error', title: 'Invalid photo', text: 'This image could not be read. Please retake it.' });
     }
   };
 

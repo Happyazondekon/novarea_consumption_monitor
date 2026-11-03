@@ -40,6 +40,9 @@ const ADMIN_PAGES = ["/dashboard/events", "/dashboard/reports", "/dashboard/user
 const ADMIN_API_PREFIXES = ["/api/dashboard", "/api/reports", "/api/notifications/test-mail"];
 const ADMIN_API_EXACT = ["/api/users"];
 
+/** Binary image endpoints, which manage their own (private) caching. */
+const IMAGE_API = /^\/api\/(?:readings\/[^/]+\/photo|users\/[^/]+\/avatar)$/;
+
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -81,7 +84,14 @@ function withSecurityHeaders(response: NextResponse, pathname: string): NextResp
   // back/forward cache. This is what stops the browser from re-rendering a
   // stale /login (or a dashboard) after sign-in or sign-out: `no-store` also
   // makes the page ineligible for Chrome's back-forward cache.
-  if (pathname === "/login" || pathname.startsWith("/dashboard") || pathname.startsWith("/api/")) {
+  //
+  // Exception: the image endpoints serve versioned URLs (`?v=`) and set their
+  // own `private, immutable` policy. Letting the browser keep them is what
+  // stops every page load from re-downloading every photo from Neon.
+  if (
+    (pathname === "/login" || pathname.startsWith("/dashboard") || pathname.startsWith("/api/")) &&
+    !IMAGE_API.test(pathname)
+  ) {
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
     response.headers.set("Pragma", "no-cache");
   }
